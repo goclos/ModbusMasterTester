@@ -1,0 +1,34 @@
+TODO_:
+-Wysyłanie zapytnia zgodnie z zazna. funkcją
+-Numeracja labelek zgodna aktualnym numerem rejestru
+-Pool interval
+
+def self.IPaddressValidate(self,char):
+def self.TCPportValidate(self,char):
+def self.ServerIDValidate(self,char):
+def self.StartAddressIDValidate(self,char):
+def self.RegCountValidate(self,char):
+def self.PoolIntervalValidate(self,char):
+
+self.IPaddressValidate()
+self.TCPportValidate()
+self.ServerIDValidate()
+self.StartAddressIDValidate()
+self.RegCountValidate()
+self.PoolIntervalValidate()
+
+self.IPaddress
+self.TCPport.get()
+self.serverID.get()
+self.startadres.get()
+self.regCount.get()
+self.poolInterval.get()
+
+'01-Read coil'
+'02-Read Discrete Input'
+'03-Read holding Register'
+'04-Read input register'
+'05-Write output coil'
+'06-Write holding register'
+'15-Write output coils'
+'16-Write output registers'
