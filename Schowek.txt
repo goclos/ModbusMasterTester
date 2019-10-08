@@ -1,6 +1,9 @@
 TODO_:
 -Wysyłanie zapytnia zgodnie z zazna. funkcją
 -Numeracja labelek zgodna aktualnym numerem rejestru
+-Po zaznaczeniu funkcji z zapisem 1 cewki/rej
+  wyszarzanie pola count
+-Walidacja pól rejestrów dla funkcji "write"
 -Pool interval
 
 def self.IPaddressValidate(self,char):
@@ -10,12 +13,14 @@ def self.StartAddressIDValidate(self,char):
 def self.RegCountValidate(self,char):
 def self.PoolIntervalValidate(self,char):
 
-self.IPaddressValidate()
-self.TCPportValidate()
-self.ServerIDValidate()
-self.StartAddressIDValidate()
-self.RegCountValidate()
-self.PoolIntervalValidate()
+'01-Read coils'
+'02-Read Discrete Input'
+'03-Read holding Register'
+'04-Read input register'
+'05-Write output coil'
+'06-Write holding register'
+'15-Write output coils'
+'16-Write output registers'
 
 self.IPaddress
 self.TCPport.get()
@@ -24,11 +29,11 @@ self.startadres.get()
 self.regCount.get()
 self.poolInterval.get()
 
-'01-Read coil'
-'02-Read Discrete Input'
-'03-Read holding Register'
-'04-Read input register'
-'05-Write output coil'
-'06-Write holding register'
-'15-Write output coils'
-'16-Write output registers'
+self.client.read_coils(bit_addr)
+self.client.read_discrete_inputs(bit_addr)
+self.client.read_holding_registers(reg_addr)
+self.client.read_input_registers(reg_addr)
+self.client.write_single_coil(bit_addr, bit_value)
+self.client.write_single_register(reg_addr, reg_value)
+self.client.write_multiple_coils(bits_addr, bits_value)
+self.client.write_multiple_registers(regs_addr, regs_value)

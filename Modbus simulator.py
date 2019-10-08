@@ -9,7 +9,7 @@ class GUI:
     def __init__(self, window):
         odstepyX = 15
         odstepyY = 10
-        self.kodyFunkcji = ('01-Read coil','02-Read Discrete Input','03-Read holding Register',\
+        self.kodyFunkcji = ('01-Read coils','02-Read Discrete Input','03-Read holding Register',\
                             '04-Read input register','05-Write output coil','06-Write holding register',\
                             '15-Write output coils','16-Write output registers')
         self.polaRejestow = {}
@@ -42,12 +42,10 @@ class GUI:
         self.serverID.insert(0, "1")
         #Function code
         tkinter.Label(self.f1, text="Function code:").grid(row=1, column=2)
-        self.cb_value = tkinter.StringVar() # zmienna typu StringVar, która zostanie podpięta pod kontrolkę Combobo
-        self.FuncCode = ttk.Combobox(self.f1, textvariable = self.cb_value,state="readonly") # tworzenie kontrolki Combobox
+        self.FuncCode = ttk.Combobox(self.f1, values = self.kodyFunkcji,state="readonly") # tworzenie kontrolki Combobox
         self.FuncCode.grid(row=1, column=3) # umieszczenie kontrolki na oknie głównym
-        self.FuncCode['values'] = (self.kodyFunkcji) # ustawienie elementów zawartych na liście rozwijanej
         self.FuncCode.current(0) # ustawienie domyślnego indeksu zaznaczenia
-        self.FuncCode.bind("<<ComboboxSelected>>") # podpięcie metody pod zdarzenie zmiany zaznaczenia
+        #self.FuncCode.bind("<<ComboboxSelected>>") # podpięcie metody pod zdarzenie zmiany zaznaczenia
         #Start address
         tkinter.Label(self.f1, text="Start address:").grid(row=2, column=0)
         self.startadres = tkinter.Entry(self.f1)
@@ -77,10 +75,66 @@ class GUI:
         self.close_btn = tkinter.Button(self.f2, text = "Close", command = window.quit) # closing the 'window' when you click the button
         self.close_btn.grid(row=4, column=0)
 
-    def readWrite(self):
-        self.client.read_discrete_inputs(bit_addr)
+    def readWriteThreat():
+        pass
 
-        regs = self.client.read_holding_registers(int(self.startadres.get()), int(self.regCount.get()))
+    def readWrite(self):
+        #self.kodyFunkcji[i]
+        ModbusMethods = [self.client.read_coils, self.client.read_discrete_inputs, \
+                        self.client.read_holding_registers, self.client.read_input_registers,\
+                        self.client.write_single_coil,  self.client.write_single_register, \
+                        self.client.write_multiple_coils,  self.client.write_multiple_registers]
+        SelectedFuncCode = self.FuncCode.get()
+        regs= 0
+        #Funkcje odczytujące
+        if SelectedFuncCode == '01-Read coils':
+            regs = self.client.read_coils(int(self.startadres.get()), int(self.regCount.get()))
+        if SelectedFuncCode == '02-Read Discrete Input':
+            regs = self.client.read_discrete_inputs(int(self.startadres.get()))
+        if SelectedFuncCode == '03-Read holding Register':
+            regs = self.client.read_holding_registers(int(self.startadres.get()), int(self.regCount.get()))
+        if SelectedFuncCode == '04-Read input register':
+            regs = self.client.read_input_registers(int(self.startadres.get()), int(self.regCount.get()))
+        #Funkcje zapisujące
+        if SelectedFuncCode == '05-Write output coil':
+            result = self.client.write_single_coil(int(self.startadres.get()), bool(self.polaRejestow[0].get()))
+            if result:
+                print("Success! Value set")
+                return
+            else:
+                print("Write coil failed")
+                return
+        if SelectedFuncCode == '06-Write holding register':
+            result = self.client.write_single_register(int(self.startadres.get()), int(self.polaRejestow[0].get()))
+            if result:
+                print("Success! Value set")
+                return
+            else:
+                print("Write register failed")
+                return
+        if SelectedFuncCode == '15-Write output coils' or SelectedFuncCode =='16-Write output registers':
+            rejestryBool=[]
+            rejestryInt=[]
+            for i in range(0, len(self.polaRejestow)):
+                rejestryBool.append(bool(self.polaRejestow[i].get()))
+                rejestryInt.append(int(self.polaRejestow[i].get()))
+        if SelectedFuncCode == '15-Write output coils':
+            result = self.client.write_multiple_coils(int(self.startadres.get()), rejestryBool)
+            if result:
+                print("Success! Coils set")
+                return
+            else:
+                print("Write coils failed!")
+                return
+        if SelectedFuncCode == '16-Write output registers':
+            result = self.client.write_multiple_registers(int(self.startadres.get()), rejestryInt)
+            if result:
+                print("Success! Coils set")
+                return
+            else:
+                print("Write coils failed!")
+                return
+        #regs = self.client.read_holding_registers(int(self.startadres.get()), int(self.regCount.get()))
         print(self.FuncCode.get())
         if regs== None:
             messagebox.showinfo("Info", 'Cannot connect to slave/server')
@@ -89,26 +143,27 @@ class GUI:
         #print("!!!---!!!---!!!",type(regs), regs)
         for index , element in enumerate(regs):
             print(index, element)
-            self.polaRejestow[index+1].delete(0, 'end')
-            self.polaRejestow[index+1].insert(0, element)
+            self.polaRejestow[index].delete(0, 'end') #Usuwanie poprzedniej wartości
+            self.polaRejestow[index].insert(0, element) #Dodawanie nowej wartości
         print(regs)
 
     def say_hi(self):
         tkinter.Label(self.f2, text = self.IPaddress.get()).grid(row=5, column=0)
 
     def on_select_changed(self, event):
-        messagebox.showinfo("Info", self.cb_value.get())
+        #messagebox.showinfo("Info", self.cb_value.get())
+        pass
 
     def registerEntry(self):
         count = int(self.regCount.get())
         for index , element in enumerate(self.polaRejestow):
-            self.polaRejestow[index+1].destroy()
-            self.labelkiRejestrow[index+1].destroy()
-        index = 1
+            self.polaRejestow[index].destroy()
+            self.labelkiRejestrow[index].destroy()
+        index = 0
         while count != 0:
             for x in range(0,16,2):    #iterowanie po x
                 for y in range(0,30):   #iterowanie po y
-                    self.labelkiRejestrow [index] = tkinter.Label(self.f3 , text="{0}.".format(index))
+                    self.labelkiRejestrow [index] = tkinter.Label(self.f3 , text="{0}.".format(index+count))
                     self.labelkiRejestrow [index].grid(row=4+y, column=x, sticky='e')
                     self.polaRejestow [index]= tkinter.Entry(self.f3 )
                     self.polaRejestow [index].grid(row=4+y, column=x+1,sticky='w')
@@ -154,7 +209,7 @@ class GUI:
         self.IPaddress['state'] = 'normal'
         self.TCPport['state'] = 'normal'
         self.serverID['state'] = 'normal'
-        self.FuncCode['state'] = 'normal'
+        self.FuncCode['state'] = 'readonly'
         self.startadres['state'] = 'normal'
         self.regCount['state'] = 'normal'
         self.poolInterval['state'] = 'normal'
