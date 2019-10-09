@@ -37,3 +37,12 @@ self.client.write_single_coil(bit_addr, bit_value)
 self.client.write_single_register(reg_addr, reg_value)
 self.client.write_multiple_coils(bits_addr, bits_value)
 self.client.write_multiple_registers(regs_addr, regs_value)
+
+'01-Read coils'
+'02-Read Discrete Inputs'
+'03-Read holding Registers'
+'04-Read input registers'
+'05-Write output coil'
+'06-Write holding register'
+'15-Write output coils'
+'16-Write output registers'
