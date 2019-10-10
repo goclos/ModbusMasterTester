@@ -15,6 +15,7 @@ class GUI:
         self.polaRejestow = {}
         self.labelkiRejestrow = {}
         self.client = 0
+        self.timer = 0
         #window.resizable(False, False)
         tabcontrol = ttk.Notebook(window) #Komponent który kontroluje B
         self.f1 = ttk.Frame(tabcontrol)   # Pierwsza strona
@@ -65,9 +66,9 @@ class GUI:
         #Przyciski Start stop
         self.connect = tkinter.Button(self.f1, text = "Connect", height=2, width=10, command=self.tcpConnect)
         self.connect.grid(row=4, column=0)
-        self.start = tkinter.Button(self.f1, text = "Start", height=2, width=10, command=self.readWrite, state='disabled')
+        self.start = tkinter.Button(self.f1, text = "Start", height=2, width=10, command=self.startSending, state='disabled')
         self.start.grid(row=4, column=1)
-        self.stop = tkinter.Button(self.f1, text = "Stop", height=2,width=10, state='disabled')
+        self.stop = tkinter.Button(self.f1, text = "Stop", height=2,width=10, command=self.stopSending, state='disabled')
         self.stop.grid(row=4, column=2)
         self.disco = tkinter.Button(self.f1, text = "Disconnect", height=2, width=10, command=self.tcpClose, state='disabled')
         self.disco.grid(row=4, column=3)
@@ -76,8 +77,16 @@ class GUI:
         self.close_btn = tkinter.Button(self.f2, text = "Close", command = window.quit) # closing the 'window' when you click the button
         self.close_btn.grid(row=4, column=0)
 
-    def readWriteThreat():
-        pass
+    def stopSending(self):
+        self.disco['state'] = 'normal'
+        self.start['state'] = 'normal'
+        self.timer.cancel()
+
+    def startSending(self):
+        self.disco['state'] = 'disabled'
+        self.start['state'] = 'disabled'
+        self.timer = threading.Timer(float(self.poolInterval.get())/1000, self.readWrite)
+        self.timer.start()
 
     def readWrite(self):
         #self.kodyFunkcji[i]
@@ -106,17 +115,23 @@ class GUI:
             result = self.client.write_single_coil(int(self.startadres.get()), rejestrDozapisana)
             if result:
                 print("Success! Value set")
+                self.start['state'] = 'normal'
+                self.stopSending()
                 return
             else:
                 print("Write coil failed")
+                self.stopSending()
                 return
         if SelectedFuncCode == '06-Write holding register':
             result = self.client.write_single_register(int(self.startadres.get()), int(self.polaRejestow[0].get()))
             if result:
                 print("Success! Value set")
+                self.start['state'] = 'normal'
+                self.stopSending()
                 return
             else:
                 print("Write register failed")
+                self.stopSending()
                 return
         if SelectedFuncCode == '15-Write output coils' or SelectedFuncCode =='16-Write output registers':
             rejestryBool=[]
@@ -132,17 +147,23 @@ class GUI:
             result = self.client.write_multiple_coils(int(self.startadres.get()), rejestryBool)
             if result:
                 print("Success! Coils set")
+                self.start['state'] = 'normal'
+                self.stopSending()
                 return
             else:
                 print("Write coils failed!")
+                self.stopSending()
                 return
         if SelectedFuncCode == '16-Write output registers':
             result = self.client.write_multiple_registers(int(self.startadres.get()), rejestryInt)
             if result:
                 print("Success! Coils set")
+                self.start['state'] = 'normal'
+                self.stopSending()
                 return
             else:
                 print("Write coils failed!")
+                self.stopSending()
                 return
         #regs = self.client.read_holding_registers(int(self.startadres.get()), int(self.regCount.get()))
         print(self.FuncCode.get())
@@ -150,12 +171,14 @@ class GUI:
             messagebox.showinfo("Info", 'Cannot connect to slave/server')
             self.disconnected()
             return False
-        print("!!!---!!!---!!!",type(regs), regs)
+        #print("!!!---!!!---!!!",type(regs), regs)
         for index , element in enumerate(regs):
             print(index, element)
             self.polaRejestow[index].delete(0, 'end') #Usuwanie poprzedniej wartości
             self.polaRejestow[index].insert(0, element) #Dodawanie nowej wartości
-        print(regs)
+        self.timer = threading.Timer(float(self.poolInterval.get())/1000 , self.readWrite)
+        self.timer.start()
+
 
     def say_hi(self):
         tkinter.Label(self.f2, text = self.IPaddress.get()).grid(row=5, column=0)
@@ -337,8 +360,7 @@ if __name__ == "__main__":
     positionRight = int(window.winfo_screenwidth()/2 - windowWidth/2)
     positionDown = int(window.winfo_screenheight()/2 - windowHeight/2)
     window.geometry("+{}+{}".format(positionRight, positionDown))
-    #window.geometry("800x800")
+    window.geometry("770x900")
     window.title("Modbus TCP simulator")
     GUI = GUI(window)
-
     window.mainloop()

@@ -1,6 +1,10 @@
 TODO_:
--źle wyświetlają się labelki przy polach rejestrów 
--Pool interval
+-Zwężenie foremek pól wszędzie gdzie są
+za szerokie
+-Dodanie statystyk komunikacji:
+  -Wysłane/odebrane
+  -Ile Timeout
+
 -Dodanie formy timeout
 
 def self.IPaddressValidate(self,char):
