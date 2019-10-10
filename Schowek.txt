@@ -1,10 +1,7 @@
 TODO_:
--Wysyłanie zapytnia zgodnie z zazna. funkcją
--Numeracja labelek zgodna aktualnym numerem rejestru
--Po zaznaczeniu funkcji z zapisem 1 cewki/rej
-  wyszarzanie pola count
--Walidacja pól rejestrów dla funkcji "write"
+-źle wyświetlają się labelki przy polach rejestrów 
 -Pool interval
+-Dodanie formy timeout
 
 def self.IPaddressValidate(self,char):
 def self.TCPportValidate(self,char):

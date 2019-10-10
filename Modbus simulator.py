@@ -91,15 +91,19 @@ class GUI:
         if SelectedFuncCode == '01-Read coils':
             regs = self.client.read_coils(int(self.startadres.get()), int(self.regCount.get()))
         if SelectedFuncCode == '02-Read Discrete Inputs':
-            regs = self.client.read_discrete_inputs(int(self.startadres.get()))
+            regs = self.client.read_discrete_inputs(int(self.startadres.get()),int(self.regCount.get()))
         if SelectedFuncCode == '03-Read holding Registers':
             regs = self.client.read_holding_registers(int(self.startadres.get()), int(self.regCount.get()))
         if SelectedFuncCode == '04-Read input Registers':
             regs = self.client.read_input_registers(int(self.startadres.get()), int(self.regCount.get()))
         #Funkcje zapisujące
         if SelectedFuncCode == '05-Write output coil':
-            #Walidacja rejestrów
-            result = self.client.write_single_coil(int(self.startadres.get()), bool(int(self.polaRejestow[0].get())))
+            rejestrDozapisana = 0
+            if self.polaRejestow[0].get() == "":
+                rejestrDozapisana = False
+            else:
+                rejestrDozapisana = bool(int(self.polaRejestow[0].get()))
+            result = self.client.write_single_coil(int(self.startadres.get()), rejestrDozapisana)
             if result:
                 print("Success! Value set")
                 return
@@ -175,7 +179,8 @@ class GUI:
     def registerEntry(self):
         count = int(self.regCount.get())
         index = 0
-        startLabel = count
+        startLabel = int(self.startadres.get())
+        self.removeRegisterForms()
         while count != 0:              #Budowanie form rejestrów
             for x in range(0,16,2):    #iterowanie po x
                 for y in range(0,30):   #iterowanie po y
@@ -188,8 +193,8 @@ class GUI:
                     count = count -1
                     if count == 0:
                         return True
-                        
-    def RemoveRegisterForms(self):
+
+    def removeRegisterForms(self):
         for index , element in enumerate(self.polaRejestow):
             self.polaRejestow[index].destroy()
             self.labelkiRejestrow[index].destroy()
@@ -221,9 +226,8 @@ class GUI:
 
     def tcpClose(self):
         self.client.close()
+        self.removeRegisterForms()
         self.disconnected()
-        self.RemoveRegisterForms()
-
 
     def disconnected(self):
         self.connect['state'] = 'normal'
