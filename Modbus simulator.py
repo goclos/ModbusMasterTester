@@ -28,7 +28,7 @@ class GUI:
         tabcontrol.add(self.f2, text='Slave')
         #Adres IP
         tkinter.Label(self.f1, text="IP address:").grid(row=0, column=0)
-        self.IPaddress = tkinter.Entry(self.f1)
+        self.IPaddress = tkinter.Entry(self.f1, width=15)
         self.IPaddress.grid(row=0, column=1,padx = odstepyX, pady=odstepyY)
         self.IPaddress.insert(0, "192.168.0.1")
         #Port TCP
@@ -38,7 +38,7 @@ class GUI:
         self.TCPport.insert(0, "502")
         #Server ID
         tkinter.Label(self.f1, text="Server / Slave ID:").grid(row=1, column=0)
-        self.serverID = tkinter.Entry(self.f1)
+        self.serverID = tkinter.Entry(self.f1,width=15)
         self.serverID.grid(row=1, column=1,padx = odstepyX , pady=odstepyY)
         self.serverID.insert(0, "1")
         #Function code
@@ -50,12 +50,12 @@ class GUI:
         #self.FuncCode.bind("<<ComboboxSelected>>") # podpięcie metody pod zdarzenie zmiany zaznaczenia
         #Start address
         tkinter.Label(self.f1, text="Start address(dec):").grid(row=2, column=0)
-        self.startadres = tkinter.Entry(self.f1)
+        self.startadres = tkinter.Entry(self.f1,width=15)
         self.startadres.grid(row=2, column=1,padx = odstepyX, pady=odstepyY )
         self.startadres.insert(0, "0")
         #register count
         tkinter.Label(self.f1, text="Register count:").grid(row=3, column=0)
-        self.regCount = tkinter.Entry(self.f1)
+        self.regCount = tkinter.Entry(self.f1,width=15)
         self.regCount.grid(row=3, column=1,padx = odstepyX, pady=odstepyY )
         self.regCount.insert(0, "1")
         #Pool interval
@@ -85,6 +85,7 @@ class GUI:
     def startSending(self):
         self.disco['state'] = 'disabled'
         self.start['state'] = 'disabled'
+        self.stop['state'] = 'normal'
         self.timer = threading.Timer(float(self.poolInterval.get())/1000, self.readWrite)
         self.timer.start()
 
@@ -206,10 +207,10 @@ class GUI:
         self.removeRegisterForms()
         while count != 0:              #Budowanie form rejestrów
             for x in range(0,16,2):    #iterowanie po x
-                for y in range(0,30):   #iterowanie po y
+                for y in range(0,20):   #iterowanie po y
                     self.labelkiRejestrow [index] = tkinter.Label(self.f3 , text="{0}.".format(index+startLabel))
                     self.labelkiRejestrow [index].grid(row=4+y, column=x, sticky='e')
-                    self.polaRejestow [index]= tkinter.Entry(self.f3 )
+                    self.polaRejestow [index]= tkinter.Entry(self.f3,width=8, bd=1)
                     self.polaRejestow[index].insert(0, "0")
                     self.polaRejestow [index].grid(row=4+y, column=x+1,sticky='w')
                     index = index +1
@@ -223,6 +224,7 @@ class GUI:
             self.labelkiRejestrow[index].destroy()
 
     def tcpConnect(self):
+        self.stop['state'] = 'disable'
         #Walidacja pól
         if not self.IPaddressValidate():
             return
@@ -268,7 +270,7 @@ class GUI:
     def connected(self):
         self.connect['state'] = 'disabled'
         self.start['state'] = 'normal'
-        self.stop['state'] = 'normal'
+        self.stop['state'] = 'disabled'
         self.disco['state'] = 'normal'
         self.IPaddress['state'] = 'disabled'
         self.TCPport['state'] = 'disabled'
@@ -360,7 +362,8 @@ if __name__ == "__main__":
     positionRight = int(window.winfo_screenwidth()/2 - windowWidth/2)
     positionDown = int(window.winfo_screenheight()/2 - windowHeight/2)
     window.geometry("+{}+{}".format(positionRight, positionDown))
-    window.geometry("770x900")
-    window.title("Modbus TCP simulator")
+    #window.geometry("500x400")
+    #window.title("Modbus TCP simulator")
+    window.minsize(500, 700)
     GUI = GUI(window)
     window.mainloop()

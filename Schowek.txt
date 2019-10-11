@@ -1,6 +1,4 @@
 TODO_:
--Zwężenie foremek pól wszędzie gdzie są
-za szerokie
 -Dodanie statystyk komunikacji:
   -Wysłane/odebrane
   -Ile Timeout
