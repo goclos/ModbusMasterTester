@@ -4,6 +4,12 @@ from tkinter import messagebox
 from pyModbusTCP.client import ModbusClient
 import time
 import threading
+import logging
+from pymodbus.payload import BinaryPayloadDecoder
+
+logging.basicConfig()
+log = logging.getLogger()
+log.setLevel(logging.DEBUG)
 
 class GUI:
     def __init__(self, window):
@@ -12,6 +18,10 @@ class GUI:
         self.kodyFunkcji = ('01-Read coils','02-Read Discrete Inputs','03-Read holding Registers',\
                             '04-Read input Registers','05-Write output coil','06-Write holding register',\
                             '15-Write output coils','16-Write output registers')
+        self.error_definition = {1:"Illegal Function",2:"illegal Data address",3:"Illegal data ValueError",\
+                                4:"Slave device failure",5:"Acknowledge",6:"Slave Device busy",\
+                                7:"Negative Acknowledge",8:"Memory Parity  error",10:"Gateway path unavailable",\
+                                11:"Gateway Target device failed to respond"}
         self.polaRejestow = {}
         self.labelkiRejestrow = {}
         self.client = 0
@@ -21,7 +31,9 @@ class GUI:
         self.f1 = ttk.Frame(tabcontrol)   # Pierwsza strona
         self.f2 = ttk.Frame(tabcontrol)   # Druga strona
         self.f3 = ttk.Frame(self.f1)      # Ramka z rejestrami w zakładce pierwszej
-        self.f3.grid(row=5, column=0, sticky='w',columnspan=4, padx=20, pady=20)
+        self.f4 = ttk.Frame(self.f1)
+        self.f3.grid(row=5, column=0, sticky='w',columnspan=4, padx=20, pady=20)    #Ramka z rejestrami
+        self.f4.grid(row=7, column=0, sticky='w',columnspan=4, padx=20, pady=20)    #Ramka ze statystykami
         tabcontrol.pack(expan=1,fill="both")
         tabcontrol.pack(expan=1,fill="both")
         tabcontrol.add(self.f1, text='Master')
@@ -30,7 +42,7 @@ class GUI:
         tkinter.Label(self.f1, text="IP address:").grid(row=0, column=0)
         self.IPaddress = tkinter.Entry(self.f1, width=15)
         self.IPaddress.grid(row=0, column=1,padx = odstepyX, pady=odstepyY)
-        self.IPaddress.insert(0, "192.168.0.1")
+        self.IPaddress.insert(0, "127.0.0.1")
         #Port TCP
         tkinter.Label(self.f1, text="TCP port:").grid(row=0, column=2)
         self.TCPport = tkinter.Entry(self.f1)
@@ -72,6 +84,11 @@ class GUI:
         self.stop.grid(row=4, column=2)
         self.disco = tkinter.Button(self.f1, text = "Disconnect", height=2, width=10, command=self.tcpClose, state='disabled')
         self.disco.grid(row=4, column=3)
+        #Statystyki
+        self.txcounter = 0
+        tkinter.Label(self.f4, text="Transmitted requests:").grid(row=0, column=0)
+        self.txrx = tkinter.Label(self.f4, text="{0}".format(self.txcounter))
+        self.txrx.grid(row=0, column=1)
 
         #Druga zakładka:
         self.close_btn = tkinter.Button(self.f2, text = "Close", command = window.quit) # closing the 'window' when you click the button
@@ -167,16 +184,21 @@ class GUI:
                 self.stopSending()
                 return
         #regs = self.client.read_holding_registers(int(self.startadres.get()), int(self.regCount.get()))
-        print(self.FuncCode.get())
-        if regs== None:
-            messagebox.showinfo("Info", 'Cannot connect to slave/server')
+
+        if regs == None:
+            error_code = self.client.last_error()
+            messagebox.showinfo("Info", 'Cannot connect or error code. Error Code={0}. {1}'.format(error_code, self.error_definition[int(error_code)]))
+            self.txcounter = 0
+            print("Kod błędu: ",self.client.last_error())
             self.disconnected()
             return False
-        #print("!!!---!!!---!!!",type(regs), regs)
+
         for index , element in enumerate(regs):
             print(index, element)
             self.polaRejestow[index].delete(0, 'end') #Usuwanie poprzedniej wartości
             self.polaRejestow[index].insert(0, element) #Dodawanie nowej wartości
+        self.txcounter += 1
+        self.txrx['text'] = self.txcounter
         self.timer = threading.Timer(float(self.poolInterval.get())/1000 , self.readWrite)
         self.timer.start()
 
@@ -253,6 +275,8 @@ class GUI:
         self.client.close()
         self.removeRegisterForms()
         self.disconnected()
+        self.txcounter = 0
+        self.txrx['text'] = self.txcounter
 
     def disconnected(self):
         self.connect['state'] = 'normal'

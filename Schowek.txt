@@ -1,7 +1,9 @@
 TODO_:
 -Dodanie statystyk komunikacji:
   -Wysłane/odebrane
-  -Ile Timeout
+  -Ile błędów odpowiedzi.
+  -Jaki kod błędu
+  -Status
 
 -Dodanie formy timeout
 
