@@ -94,6 +94,7 @@ class GUI:
         #Druga zakładka:
         self.close_btn = tkinter.Button(self.f2, text = "Close", command = window.quit) # closing the 'window' when you click the button
         self.close_btn.grid(row=4, column=0)
+        self.registerEntry(125, 0)
 
     def stopSending(self):
         self.stop_event.set()   #Tu wyłączany jest wątek odpytywania
@@ -147,17 +148,20 @@ class GUI:
             result = self.client.write_single_register(int(self.startadres.get()), int(self.polaRejestow[0].get()))
             if result:
                 print("Success! Value set")
+                messagebox.showinfo("Info", "Success! Value set")
                 self.start['state'] = 'normal'
                 self.stopSending()
                 return
             else:
                 print("Write register failed")
+                messagebox.showinfo("Info", "Write register failed")
                 self.stopSending()
                 return
         if SelectedFuncCode == '15-Write output coils' or SelectedFuncCode =='16-Write output registers':
             rejestryBool=[]
             rejestryInt=[]
-            for i in range(0, len(self.polaRejestow)):
+            for i in range(0, int(self.regCount.get())):
+                print(i)
                 if self.polaRejestow[i].get() == "":
                     rejestryBool.append(False)
                     rejestryInt.append(0)
@@ -225,19 +229,19 @@ class GUI:
 
         #messagebox.showinfo("Info", self.cb_value.get())
 
-    def registerEntry(self):
-        count = int(self.regCount.get())
+    def registerEntry(self, count, startLabel):
+        #count = int(self.regCount.get())
+        #startLabel = int(self.startadres.get())
         index = 0
-        startLabel = int(self.startadres.get())
         self.removeRegisterForms()
         while count != 0:              #Budowanie form rejestrów
             for x in range(0,16,2):    #iterowanie po x
                 for y in range(0,20):   #iterowanie po y
                     self.labelkiRejestrow [index] = tkinter.Label(self.f3 , text="{0}.".format(index+startLabel))
-                    self.labelkiRejestrow [index].grid(row=4+y, column=x, sticky='e')
+                    self.labelkiRejestrow [index].grid(row=4+y, column=x, sticky='e',padx=5,pady=2)
                     self.polaRejestow [index]= tkinter.Entry(self.f3,width=8, bd=1)
                     self.polaRejestow[index].insert(0, "0")
-                    self.polaRejestow [index].grid(row=4+y, column=x+1,sticky='w')
+                    self.polaRejestow [index].grid(row=4+y, column=x+1,sticky='w',padx=5,pady=5)
                     index = index +1
                     count = count -1
                     if count == 0:
@@ -272,7 +276,7 @@ class GUI:
             return
         self.connected()
         print(self.client)
-        self.registerEntry()
+        self.registerEntry(int(self.regCount.get()), int(self.startadres.get()))
 
     def tcpClose(self):
         self.client.close()
@@ -389,6 +393,6 @@ if __name__ == "__main__":
     positionRight = int(window.winfo_screenwidth()/2 - windowWidth/2) -200
     positionDown = int(window.winfo_screenheight()/2 - windowHeight/2) - 400
     window.geometry("+{}+{}".format(positionRight, positionDown))
-    window.minsize(570, 700)#minimalny rozmiar okna
+    window.minsize(700, 900)#minimalny rozmiar okna
     GUI = GUI(window)
     window.mainloop()

@@ -1,10 +1,4 @@
-TODO_:
--Dodanie natychmiastowego zatrzymania odpytywania,
- może uzależnienie od jakiejś zmiennej globlanej?
--Optymalizacja - poprzez pojedyncze wywołanie wątku?
- Zamiast tworzenie nowego wątku dla każdego zapytania
--Dodanie statystyk komunikacji:
-  -Status połączenia
+TODO_
 
 
 -Dodanie formy timeout
