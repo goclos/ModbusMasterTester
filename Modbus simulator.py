@@ -26,6 +26,7 @@ class GUI:
         self.labelkiRejestrow = {}
         self.client = 0
         self.timer = 0
+        self.stop_event = threading.Event()
         #window.resizable(False, False)
         tabcontrol = ttk.Notebook(window) #Komponent który kontroluje B
         self.f1 = ttk.Frame(tabcontrol)   # Pierwsza strona
@@ -61,7 +62,7 @@ class GUI:
         self.FuncCode.current(0) # ustawienie domyślnego indeksu zaznaczenia
         #self.FuncCode.bind("<<ComboboxSelected>>") # podpięcie metody pod zdarzenie zmiany zaznaczenia
         #Start address
-        tkinter.Label(self.f1, text="Start address(dec):").grid(row=2, column=0)
+        tkinter.Label(self.f1, text="Start address (dec):").grid(row=2, column=0)
         self.startadres = tkinter.Entry(self.f1,width=15)
         self.startadres.grid(row=2, column=1,padx = odstepyX, pady=odstepyY )
         self.startadres.insert(0, "0")
@@ -71,7 +72,7 @@ class GUI:
         self.regCount.grid(row=3, column=1,padx = odstepyX, pady=odstepyY )
         self.regCount.insert(0, "1")
         #Pool interval
-        tkinter.Label(self.f1, text="Poll interval(ms):").grid(row=2, column=2)
+        tkinter.Label(self.f1, text="Poll interval (ms):").grid(row=2, column=2)
         self.poolInterval = tkinter.Entry(self.f1)
         self.poolInterval.grid(row=2, column=3,padx = odstepyX , pady=odstepyY)
         self.poolInterval.insert(0, "500")
@@ -95,11 +96,13 @@ class GUI:
         self.close_btn.grid(row=4, column=0)
 
     def stopSending(self):
+        self.stop_event.set()   #Tu wyłączany jest wątek odpytywania
         self.disco['state'] = 'normal'
         self.start['state'] = 'normal'
         self.timer.cancel()
 
     def startSending(self):
+        self.stop_event.clear() #zerowanie eventu
         self.disco['state'] = 'disabled'
         self.start['state'] = 'disabled'
         self.stop['state'] = 'normal'
@@ -183,8 +186,6 @@ class GUI:
                 print("Write coils failed!")
                 self.stopSending()
                 return
-        #regs = self.client.read_holding_registers(int(self.startadres.get()), int(self.regCount.get()))
-
         if regs == None:
             error_code = self.client.last_error()
             messagebox.showinfo("Info", 'Cannot connect or error code. Error Code={0}. {1}'.format(error_code, self.error_definition[int(error_code)]))
@@ -192,15 +193,17 @@ class GUI:
             print("Kod błędu: ",self.client.last_error())
             self.disconnected()
             return False
-
         for index , element in enumerate(regs):
             print(index, element)
             self.polaRejestow[index].delete(0, 'end') #Usuwanie poprzedniej wartości
             self.polaRejestow[index].insert(0, element) #Dodawanie nowej wartości
         self.txcounter += 1
         self.txrx['text'] = self.txcounter
+        if self.stop_event.is_set():
+            return
         self.timer = threading.Timer(float(self.poolInterval.get())/1000 , self.readWrite)
         self.timer.start()
+
 
 
     def say_hi(self):
@@ -383,11 +386,9 @@ if __name__ == "__main__":
     window = tkinter.Tk()
     windowWidth = window.winfo_reqwidth()
     windowHeight = window.winfo_reqheight()
-    positionRight = int(window.winfo_screenwidth()/2 - windowWidth/2)
-    positionDown = int(window.winfo_screenheight()/2 - windowHeight/2)
+    positionRight = int(window.winfo_screenwidth()/2 - windowWidth/2) -200
+    positionDown = int(window.winfo_screenheight()/2 - windowHeight/2) - 400
     window.geometry("+{}+{}".format(positionRight, positionDown))
-    #window.geometry("500x400")
-    #window.title("Modbus TCP simulator")
-    window.minsize(500, 700)
+    window.minsize(570, 700)#minimalny rozmiar okna
     GUI = GUI(window)
     window.mainloop()

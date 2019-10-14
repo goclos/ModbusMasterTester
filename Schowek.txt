@@ -1,9 +1,11 @@
 TODO_:
+-Dodanie natychmiastowego zatrzymania odpytywania,
+ może uzależnienie od jakiejś zmiennej globlanej?
+-Optymalizacja - poprzez pojedyncze wywołanie wątku?
+ Zamiast tworzenie nowego wątku dla każdego zapytania
 -Dodanie statystyk komunikacji:
-  -Wysłane/odebrane
-  -Ile błędów odpowiedzi.
-  -Jaki kod błędu
-  -Status
+  -Status połączenia
+
 
 -Dodanie formy timeout
 
@@ -47,3 +49,14 @@ self.client.write_multiple_registers(regs_addr, regs_value)
 '06-Write holding register'
 '15-Write output coils'
 '16-Write output registers'
+
+1 - Illegal Function
+2 - illegal Data address
+3 - Illegal data ValueError
+4 - Slave device failure
+5 - Acknowledge
+6 - Slave Device busy
+7 - Negative Acknowledge
+8 - Memory Parity  error_code
+10 - Gateway path unavailable
+11 - Gateway Target device failed to respond
