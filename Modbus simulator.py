@@ -2,19 +2,30 @@ import tkinter
 from tkinter import ttk
 from tkinter import messagebox
 from pyModbusTCP.client import ModbusClient
+from tkinter.font import Font
+import tkinter.scrolledtext as txt
 import time
 import threading
 import logging
 from pymodbus.payload import BinaryPayloadDecoder
+import sys
 
 logging.basicConfig()
 log = logging.getLogger()
 log.setLevel(logging.DEBUG)
 
+class RedirectText(object):
+    def __init__(self, text_ctrl):
+        self.output = text_ctrl
+
+    def write(self, string):
+        self.output.insert(tkinter.END, string)
+
 class GUI:
     def __init__(self, window):
-        odstepyX = 15
-        odstepyY = 10
+        sys.stdout = self          # Set stdout here
+        odstepyX = 10
+        odstepyY = 5
         self.kodyFunkcji = ('01-Read coils','02-Read Discrete Inputs','03-Read holding Registers',\
                             '04-Read input Registers','05-Write output coil','06-Write holding register',\
                             '15-Write output coils','16-Write output registers')
@@ -33,12 +44,14 @@ class GUI:
         self.f2 = ttk.Frame(tabcontrol)   # Druga strona
         self.f3 = ttk.Frame(self.f1)      # Ramka z rejestrami w zakładce pierwszej
         self.f4 = ttk.Frame(self.f1)
+        self.f5 = ttk.Frame(self.f1)
         self.f3.grid(row=5, column=0, sticky='w',columnspan=4, padx=20, pady=20)    #Ramka z rejestrami
-        self.f4.grid(row=7, column=0, sticky='w',columnspan=4, padx=20, pady=20)    #Ramka ze statystykami
+        self.f4.grid(row=7, column=0, sticky='w',columnspan=4, padx=20, pady=0)    #Ramka ze statystykami
+        self.f5.grid(row=8, column=0, sticky='w',columnspan=4, padx=20, pady=0)    #Ramka z logiem
+        tabcontrol.pack(expan=1,fill="both", pady=20)
         tabcontrol.pack(expan=1,fill="both")
-        tabcontrol.pack(expan=1,fill="both")
-        tabcontrol.add(self.f1, text='Master')
-        tabcontrol.add(self.f2, text='Slave')
+        tabcontrol.add(self.f1, text='Modbus TCP')
+        tabcontrol.add(self.f2, text='Modbus RTU')
         #Adres IP
         tkinter.Label(self.f1, text="IP address:").grid(row=0, column=0)
         self.IPaddress = tkinter.Entry(self.f1, width=15)
@@ -90,11 +103,20 @@ class GUI:
         tkinter.Label(self.f4, text="Transmitted requests:").grid(row=0, column=0)
         self.txrx = tkinter.Label(self.f4, text="{0}".format(self.txcounter))
         self.txrx.grid(row=0, column=1)
+        #log:
+        myFont = Font(family="Console", size=8)
+        self.console = txt.ScrolledText(self.f5, background="black", font=myFont, foreground="green", width=105,height = 10)
+        self.console.grid(row=1, column=0, columnspan=4, pady=20)
+
+        # redirect stdout
+        redir = RedirectText(self.console)
+        sys.stdout = redir
 
         #Druga zakładka:
         self.close_btn = tkinter.Button(self.f2, text = "Close", command = window.quit) # closing the 'window' when you click the button
         self.close_btn.grid(row=4, column=0)
         self.registerEntry(125, 0)
+
 
     def stopSending(self):
         self.stop_event.set()   #Tu wyłączany jest wątek odpytywania
@@ -111,11 +133,7 @@ class GUI:
         self.timer.start()
 
     def readWrite(self):
-        #self.kodyFunkcji[i]
-        ModbusMethods = [self.client.read_coils, self.client.read_discrete_inputs, \
-                        self.client.read_holding_registers, self.client.read_input_registers,\
-                        self.client.write_single_coil,  self.client.write_single_register, \
-                        self.client.write_multiple_coils,  self.client.write_multiple_registers]
+        print("\n#",self.txcounter,": ")
         SelectedFuncCode = self.FuncCode.get()
         regs= 0
         #Funkcje odczytujące
@@ -139,29 +157,30 @@ class GUI:
                 print("Success! Value set")
                 self.start['state'] = 'normal'
                 self.stopSending()
+                self.console.see("end") #Przewijanie okna konsoli
                 return
             else:
                 print("Write coil failed")
                 self.stopSending()
+                self.console.see("end") #Przewijanie okna konsoli
                 return
         if SelectedFuncCode == '06-Write holding register':
             result = self.client.write_single_register(int(self.startadres.get()), int(self.polaRejestow[0].get()))
             if result:
                 print("Success! Value set")
-                messagebox.showinfo("Info", "Success! Value set")
                 self.start['state'] = 'normal'
                 self.stopSending()
+                self.console.see("end") #Przewijanie okna konsoli
                 return
             else:
                 print("Write register failed")
-                messagebox.showinfo("Info", "Write register failed")
                 self.stopSending()
+                self.console.see("end") #Przewijanie okna konsoli
                 return
         if SelectedFuncCode == '15-Write output coils' or SelectedFuncCode =='16-Write output registers':
             rejestryBool=[]
             rejestryInt=[]
             for i in range(0, int(self.regCount.get())):
-                print(i)
                 if self.polaRejestow[i].get() == "":
                     rejestryBool.append(False)
                     rejestryInt.append(0)
@@ -174,10 +193,12 @@ class GUI:
                 print("Success! Coils set")
                 self.start['state'] = 'normal'
                 self.stopSending()
+                self.console.see("end") #Przewijanie okna konsoli
                 return
             else:
                 print("Write coils failed!")
                 self.stopSending()
+                self.console.see("end") #Przewijanie okna konsoli
                 return
         if SelectedFuncCode == '16-Write output registers':
             result = self.client.write_multiple_registers(int(self.startadres.get()), rejestryInt)
@@ -185,24 +206,27 @@ class GUI:
                 print("Success! Coils set")
                 self.start['state'] = 'normal'
                 self.stopSending()
+                self.console.see("end") #Przewijanie okna konsoli
                 return
             else:
                 print("Write coils failed!")
                 self.stopSending()
+                self.console.see("end") #Przewijanie okna konsoli
                 return
         if regs == None:
             error_code = self.client.last_error()
             messagebox.showinfo("Info", 'Cannot connect or error code. Error Code={0}. {1}'.format(error_code, self.error_definition[int(error_code)]))
             self.txcounter = 0
-            print("Kod błędu: ",self.client.last_error())
+            #print("Kod błędu: ",self.client.last_error())
             self.disconnected()
             return False
         for index , element in enumerate(regs):
-            print(index, element)
+            #print(index, element)
             self.polaRejestow[index].delete(0, 'end') #Usuwanie poprzedniej wartości
             self.polaRejestow[index].insert(0, element) #Dodawanie nowej wartości
         self.txcounter += 1
         self.txrx['text'] = self.txcounter
+        self.console.see("end") #Przewijanie okna konsoli
         if self.stop_event.is_set():
             return
         self.timer = threading.Timer(float(self.poolInterval.get())/1000 , self.readWrite)
@@ -214,7 +238,7 @@ class GUI:
         tkinter.Label(self.f2, text = self.IPaddress.get()).grid(row=5, column=0)
 
     def on_select_changed(self,event):
-        print(event)
+        #print(event)
         if str(self.FuncCode.get()) == '05-Write output coil' or str(self.FuncCode.get()) =='06-Write holding register':
             self.regCount.delete(0, 'end')
             self.regCount.insert(0, "1")
@@ -238,10 +262,10 @@ class GUI:
             for x in range(0,16,2):    #iterowanie po x
                 for y in range(0,20):   #iterowanie po y
                     self.labelkiRejestrow [index] = tkinter.Label(self.f3 , text="{0}.".format(index+startLabel))
-                    self.labelkiRejestrow [index].grid(row=4+y, column=x, sticky='e',padx=5,pady=2)
+                    self.labelkiRejestrow [index].grid(row=4+y, column=x, sticky='e',padx=4,pady=1)
                     self.polaRejestow [index]= tkinter.Entry(self.f3,width=8, bd=1)
                     self.polaRejestow[index].insert(0, "0")
-                    self.polaRejestow [index].grid(row=4+y, column=x+1,sticky='w',padx=5,pady=5)
+                    self.polaRejestow [index].grid(row=4+y, column=x+1,sticky='w',padx=4,pady=1)
                     index = index +1
                     count = count -1
                     if count == 0:
@@ -267,15 +291,15 @@ class GUI:
             return
         if not self.PoolIntervalValidate():
             return
-        print(self.IPaddress.get(),  self.TCPport.get())
+        #print(self.IPaddress.get(),  self.TCPport.get())
         try:
             self.client = ModbusClient(host=str(self.IPaddress.get()), \
-            port=int(self.TCPport.get()), auto_open=True,timeout=3, unit_id=int(self.serverID.get()))
+            port=int(self.TCPport.get()), auto_open=True,timeout=3, unit_id=int(self.serverID.get()),debug=True)
         except ValueError:
             print("Error with host or port params", ValueError)
             return
         self.connected()
-        print(self.client)
+        #print(self.client)
         self.registerEntry(int(self.regCount.get()), int(self.startadres.get()))
 
     def tcpClose(self):
@@ -395,4 +419,5 @@ if __name__ == "__main__":
     window.geometry("+{}+{}".format(positionRight, positionDown))
     window.minsize(700, 900)#minimalny rozmiar okna
     GUI = GUI(window)
+    window.winfo_toplevel().title("Modbus Tester")
     window.mainloop()

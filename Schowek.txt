@@ -1,7 +1,6 @@
 TODO_
-
-
--Dodanie formy timeout
+-Dodanie Modbus RTU master
+ w drugiej zakładce
 
 def self.IPaddressValidate(self,char):
 def self.TCPportValidate(self,char):
