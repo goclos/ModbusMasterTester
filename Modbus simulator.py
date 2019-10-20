@@ -3,7 +3,11 @@ from tkinter import ttk
 from tkinter import messagebox
 import tkinter.scrolledtext as txt
 from tkinter.font import Font
-from pyModbusTCP.client import ModbusClient
+#from pyModbusTCP.client import ModbusClient
+#Nowa biblioteka do modbus:
+from pymodbus.client.sync import ModbusTcpClient as ModbusClient
+from pymodbus.transaction import ModbusSocketFramer as ModbusFramer
+#
 import time
 import threading
 import logging
@@ -136,8 +140,8 @@ class GUI:
         redir = RedirectText(self.console)
         sys.stdout = redir
         # Wylistowanie labelek i form rejestrow
-        self.registerEntry(125, 0)
-
+        #self.registerEntry(125, 0)
+    #Funkcja przełączająca Modbus TCP / RTU
     def ModbusChange(self):
         print(self.ModbusMode.get())
         if self.ModbusMode.get() == 1:
@@ -168,8 +172,23 @@ class GUI:
         #Funkcje odczytujące
         if SelectedFuncCode == '01-Read coils':
             regs = self.client.read_coils(int(self.startadres.get()), int(self.regCount.get()))
+            zmienne = []
+            for i in range(0, int(self.regCount.get())):
+                zmienne.append(regs.getBit(i))
+            for index in range(0, len(zmienne)):
+                self.polaRejestow[index].delete(0, 'end') #Usuwanie poprzedniej wartości
+                self.polaRejestow[index].insert(0, int(zmienne[index])) #Dodawanie nowej wartości
+
         if SelectedFuncCode == '02-Read Discrete Inputs':
-            regs = self.client.read_discrete_inputs(int(self.startadres.get()),int(self.regCount.get()))
+            #regs = self.client.read_discrete_inputs(int(self.startadres.get()),int(self.regCount.get()))
+            regs = self.client.read_discrete_inputs(int(self.startadres.get()), int(self.regCount.get()))
+            zmienne = []
+            for i in range(0, int(self.regCount.get())):
+                zmienne.append(regs.getBit(i))
+            for index in range(0, len(zmienne)):
+                self.polaRejestow[index].delete(0, 'end') #Usuwanie poprzedniej wartości
+                self.polaRejestow[index].insert(0, int(zmienne[index])) #Dodawanie nowej wartości
+
         if SelectedFuncCode == '03-Read holding Registers':
             regs = self.client.read_holding_registers(int(self.startadres.get()), int(self.regCount.get()))
         if SelectedFuncCode == '04-Read input Registers':
@@ -249,14 +268,14 @@ class GUI:
             #print("Kod błędu: ",self.client.last_error())
             self.disconnected()
             return False
-        for index , element in enumerate(regs):
+        #for index , element in enumerate(regs):
             #print(index, element)
-            self.polaRejestow[index].delete(0, 'end') #Usuwanie poprzedniej wartości
-            self.polaRejestow[index].insert(0, element) #Dodawanie nowej wartości
+        #    self.polaRejestow[index].delete(0, 'end') #Usuwanie poprzedniej wartości
+        #    self.polaRejestow[index].insert(0, element) #Dodawanie nowej wartości
         self.txcounter += 1
         self.txrx['text'] = self.txcounter
         self.console.see("end") #Przewijanie okna konsoli
-        if self.stop_event.is_set():
+        if self.stop_event.is_set():    #Przerywanie wątku
             return
         self.timer = threading.Timer(float(self.poolInterval.get())/1000 , self.readWrite)
         self.timer.start()
@@ -313,12 +332,14 @@ class GUI:
             return
         if not self.PoolIntervalValidate():
             return
-        #print(self.IPaddress.get(),  self.TCPport.get())
-        try:
-            self.client = ModbusClient(host=str(self.IPaddress.get()), \
-            port=int(self.TCPport.get()), auto_open=True,timeout=3, unit_id=int(self.serverID.get()),debug=True)
-        except ValueError:
-            print("Error with host or port params", ValueError)
+
+        #self.client = ModbusClient(host=str(self.IPaddress.get()), \
+        #port=int(self.TCPport.get()), auto_open=True,timeout=3, unit_id=int(self.serverID.get()),debug=True)
+        self.client = ModbusClient(host=str(self.IPaddress.get()), port=int(self.TCPport.get()), unit_id=int(self.serverID.get()),timeout=3, framer=ModbusFramer)
+        if self.client.connect() != True:
+            print("Error with host or port params")
+            messagebox.showinfo("Info", 'Error with host or port params')
+            self.disconnected()
             return
         self.connected()
         #print(self.client)

@@ -1,4 +1,5 @@
 TODO_
+-Dodawanie funkcji z nowej biblioteki, 2 pierwsze już zrobione.
 -Dodanie labelek i form do wpisywania, wybieraniaparamatrow RTU:
 client= ModbusClient(method = "rtu", port="/dev/ttyUSB0",stopbits = 1, bytesize = 8, parity = 'E' baudrate= 9600)
 https://raspberrypi.stackexchange.com/questions/22712/pymodbus-rtu-rs-485-communication
