@@ -1,18 +1,17 @@
 import tkinter
 from tkinter import ttk
 from tkinter import messagebox
-from pyModbusTCP.client import ModbusClient
-from tkinter.font import Font
 import tkinter.scrolledtext as txt
+from tkinter.font import Font
+from pyModbusTCP.client import ModbusClient
 import time
 import threading
 import logging
 from pymodbus.payload import BinaryPayloadDecoder
 import sys
+import glob
+import serial.tools.list_ports
 
-logging.basicConfig()
-log = logging.getLogger()
-log.setLevel(logging.DEBUG)
 
 class RedirectText(object):
     def __init__(self, text_ctrl):
@@ -22,9 +21,9 @@ class RedirectText(object):
         self.output.insert(tkinter.END, string)
 
 class GUI:
-    def __init__(self, window):
+    def __init__(self, window, ports):
         sys.stdout = self          # Set stdout here
-        odstepyX = 10
+        odstepyX = 15
         odstepyY = 5
         self.kodyFunkcji = ('01-Read coils','02-Read Discrete Inputs','03-Read holding Registers',\
                             '04-Read input Registers','05-Write output coil','06-Write holding register',\
@@ -37,67 +36,80 @@ class GUI:
         self.labelkiRejestrow = {}
         self.client = 0
         self.timer = 0
-        self.stop_event = threading.Event()
-        #window.resizable(False, False)
-        tabcontrol = ttk.Notebook(window) #Komponent który kontroluje B
-        self.f1 = ttk.Frame(tabcontrol)   # Pierwsza strona
-        self.f2 = ttk.Frame(tabcontrol)   # Druga strona
-        self.f3 = ttk.Frame(self.f1)      # Ramka z rejestrami w zakładce pierwszej
-        self.f4 = ttk.Frame(self.f1)
-        self.f5 = ttk.Frame(self.f1)
-        self.f3.grid(row=5, column=0, sticky='w',columnspan=4, padx=20, pady=20)    #Ramka z rejestrami
-        self.f4.grid(row=7, column=0, sticky='w',columnspan=4, padx=20, pady=0)    #Ramka ze statystykami
-        self.f5.grid(row=8, column=0, sticky='w',columnspan=4, padx=20, pady=0)    #Ramka z logiem
-        tabcontrol.pack(expan=1,fill="both", pady=20)
-        tabcontrol.pack(expan=1,fill="both")
-        tabcontrol.add(self.f1, text='Modbus TCP')
-        tabcontrol.add(self.f2, text='Modbus RTU')
+        self.stop_event = threading.Event() #Definiowanie zdarzenia aby móc zatrzymać wątek wysyłania zapytań
+        self.Fmain = ttk.Frame(window)
+        self.Fmain.pack()
+        #tabcontrol = ttk.Notebook(self.Fmain) #Komponent który kontroluje B
+        self.ModbusRadioButtons = ttk.Frame(self.Fmain)
+        self.f1 = ttk.Frame(self.Fmain)   # Ustawienia ogolne Modbus
+        self.ModbusTCPsettings = ttk.Frame(self.Fmain)
+        self.ModbusRTUsetings = ttk.Frame(self.Fmain)   # Ustawienia Modbus RTU
+        self.f3 = ttk.Frame(self.Fmain)      # Ramka z rejestrami w zakładce pierwszej
+        self.f4 = ttk.Frame(self.Fmain)       #statystyki
+        self.f5 = ttk.Frame(self.Fmain)         #konsola tx/rx
+        #Pakowanie
+        self.ModbusRadioButtons.grid(row=0,column=0,columnspan=4,pady=10)
+        self.ModbusTCPsettings.grid(row=1,column=0,columnspan=4)
+        #self.ModbusRTUsetings.grid(row=1,column=0,columnspan=4,pady=20)
+        self.f1.grid(row=2,column=0,columnspan=4,pady=20)
+        self.f3.grid(row=3,column=0,columnspan=4)    #Ramka z rejestrami
+        self.f4.grid(row=4,column=0,columnspan=4)    #Ramka ze statystykami
+        self.f5.grid(row=5,column=0,columnspan=4)   #Ramka z logiem
+
+
+
+        self.ModbusMode = tkinter.IntVar()
+        self.ModbusTCPradio = tkinter.Radiobutton(self.ModbusRadioButtons, text="Modbus TCP", variable=self.ModbusMode, value=1, command = self.ModbusChange)
+        self.ModbusTCPradio.grid(row=0, column=0)
+        self.ModbusRTUradio = tkinter.Radiobutton(self.ModbusRadioButtons, text="Modbus RTU", variable=self.ModbusMode, value=2, command = self.ModbusChange)
+        self.ModbusRTUradio.grid(row=0, column=1)
+        self.ModbusTCPradio.select()
+
         #Adres IP
-        tkinter.Label(self.f1, text="IP address:").grid(row=0, column=0)
-        self.IPaddress = tkinter.Entry(self.f1, width=15)
-        self.IPaddress.grid(row=0, column=1,padx = odstepyX, pady=odstepyY)
+        tkinter.Label(self.ModbusTCPsettings, text="IP address:").grid(row=1, column=0)
+        self.IPaddress = tkinter.Entry(self.ModbusTCPsettings, width=15)
+        self.IPaddress.grid(row=1, column=1,padx = odstepyX, pady=odstepyY)
         self.IPaddress.insert(0, "127.0.0.1")
         #Port TCP
-        tkinter.Label(self.f1, text="TCP port:").grid(row=0, column=2)
-        self.TCPport = tkinter.Entry(self.f1)
-        self.TCPport.grid(row=0, column=3,padx = odstepyX, pady=odstepyY)
+        tkinter.Label(self.ModbusTCPsettings, text="TCP port:").grid(row=1, column=2)
+        self.TCPport = tkinter.Entry(self.ModbusTCPsettings)
+        self.TCPport.grid(row=1, column=3,padx = odstepyX, pady=odstepyY)
         self.TCPport.insert(0, "502")
         #Server ID
-        tkinter.Label(self.f1, text="Server / Slave ID:").grid(row=1, column=0)
+        tkinter.Label(self.f1, text="Server / Slave ID:").grid(row=2, column=0)
         self.serverID = tkinter.Entry(self.f1,width=15)
-        self.serverID.grid(row=1, column=1,padx = odstepyX , pady=odstepyY)
+        self.serverID.grid(row=2, column=1,padx = odstepyX , pady=odstepyY)
         self.serverID.insert(0, "1")
         #Function code
-        tkinter.Label(self.f1, text="Function code:").grid(row=1, column=2)
+        tkinter.Label(self.f1, text="Function code:").grid(row=2, column=2)
         self.FuncCode = ttk.Combobox(self.f1, values = self.kodyFunkcji,state="readonly") # tworzenie kontrolki Combobox
         self.FuncCode.bind('<<ComboboxSelected>>', self.on_select_changed)
-        self.FuncCode.grid(row=1, column=3) # umieszczenie kontrolki na oknie głównym
+        self.FuncCode.grid(row=2, column=3) # umieszczenie kontrolki na oknie głównym
         self.FuncCode.current(0) # ustawienie domyślnego indeksu zaznaczenia
-        #self.FuncCode.bind("<<ComboboxSelected>>") # podpięcie metody pod zdarzenie zmiany zaznaczenia
         #Start address
-        tkinter.Label(self.f1, text="Start address (dec):").grid(row=2, column=0)
+        tkinter.Label(self.f1, text="Start address (dec):").grid(row=3, column=0)
         self.startadres = tkinter.Entry(self.f1,width=15)
-        self.startadres.grid(row=2, column=1,padx = odstepyX, pady=odstepyY )
+        self.startadres.grid(row=3, column=1,padx = odstepyX, pady=odstepyY )
         self.startadres.insert(0, "0")
         #register count
-        tkinter.Label(self.f1, text="Register count:").grid(row=3, column=0)
+        tkinter.Label(self.f1, text="Register count:").grid(row=4, column=0)
         self.regCount = tkinter.Entry(self.f1,width=15)
-        self.regCount.grid(row=3, column=1,padx = odstepyX, pady=odstepyY )
+        self.regCount.grid(row=4, column=1,padx = odstepyX, pady=odstepyY )
         self.regCount.insert(0, "1")
         #Pool interval
-        tkinter.Label(self.f1, text="Poll interval (ms):").grid(row=2, column=2)
+        tkinter.Label(self.f1, text="Poll interval (ms):").grid(row=3, column=2)
         self.poolInterval = tkinter.Entry(self.f1)
-        self.poolInterval.grid(row=2, column=3,padx = odstepyX , pady=odstepyY)
+        self.poolInterval.grid(row=3, column=3,padx = odstepyX , pady=odstepyY)
         self.poolInterval.insert(0, "500")
         #Przyciski Start stop
         self.connect = tkinter.Button(self.f1, text = "Connect", height=2, width=10, command=self.tcpConnect)
-        self.connect.grid(row=4, column=0)
+        self.connect.grid(row=5, column=0)
         self.start = tkinter.Button(self.f1, text = "Start", height=2, width=10, command=self.startSending, state='disabled')
-        self.start.grid(row=4, column=1)
+        self.start.grid(row=5, column=1)
         self.stop = tkinter.Button(self.f1, text = "Stop", height=2,width=10, command=self.stopSending, state='disabled')
-        self.stop.grid(row=4, column=2)
+        self.stop.grid(row=5, column=2)
         self.disco = tkinter.Button(self.f1, text = "Disconnect", height=2, width=10, command=self.tcpClose, state='disabled')
-        self.disco.grid(row=4, column=3)
+        self.disco.grid(row=5, column=3)
         #Statystyki
         self.txcounter = 0
         tkinter.Label(self.f4, text="Transmitted requests:").grid(row=0, column=0)
@@ -108,15 +120,32 @@ class GUI:
         self.console = txt.ScrolledText(self.f5, background="black", font=myFont, foreground="green", width=105,height = 10)
         self.console.grid(row=1, column=0, columnspan=4, pady=20)
 
+        #-----------------------------------------------------------------------
+#Druga zakładka:
+        #Numer portu COM
+        tkinter.Label(self.ModbusRTUsetings, text="COM port:").grid(row=0, column=0)
+        if ports == []:
+            ports = ["None"]
+        self.PortCOM = ttk.Combobox(self.ModbusRTUsetings,state="readonly", values = ports) # tworzenie kontrolki Combobox
+        self.PortCOM.grid(row=0, column=1) # umieszczenie kontrolki na oknie głównym
+        self.PortCOM.current(0) # ustawienie domyślnego indeksu zaznaczenia
+
+
+
         # redirect stdout
         redir = RedirectText(self.console)
         sys.stdout = redir
-
-        #Druga zakładka:
-        self.close_btn = tkinter.Button(self.f2, text = "Close", command = window.quit) # closing the 'window' when you click the button
-        self.close_btn.grid(row=4, column=0)
+        # Wylistowanie labelek i form rejestrow
         self.registerEntry(125, 0)
 
+    def ModbusChange(self):
+        print(self.ModbusMode.get())
+        if self.ModbusMode.get() == 1:
+            self.ModbusTCPsettings.grid(row=1,column=0,columnspan=4)
+            self.ModbusRTUsetings.grid_forget()
+        if self.ModbusMode.get() == 2:
+            self.ModbusTCPsettings.grid_forget()
+            self.ModbusRTUsetings.grid(row=1,column=0,columnspan=4)
 
     def stopSending(self):
         self.stop_event.set()   #Tu wyłączany jest wątek odpytywania
@@ -232,11 +261,6 @@ class GUI:
         self.timer = threading.Timer(float(self.poolInterval.get())/1000 , self.readWrite)
         self.timer.start()
 
-
-
-    def say_hi(self):
-        tkinter.Label(self.f2, text = self.IPaddress.get()).grid(row=5, column=0)
-
     def on_select_changed(self,event):
         #print(event)
         if str(self.FuncCode.get()) == '05-Write output coil' or str(self.FuncCode.get()) =='06-Write holding register':
@@ -249,8 +273,6 @@ class GUI:
                     self.labelkiRejestrow[index].destroy()
                 except:
                     return
-
-
         #messagebox.showinfo("Info", self.cb_value.get())
 
     def registerEntry(self, count, startLabel):
@@ -322,6 +344,7 @@ class GUI:
         self.regCount['state'] = 'normal'
         self.poolInterval['state'] = 'normal'
 
+
     def connected(self):
         self.connect['state'] = 'disabled'
         self.start['state'] = 'normal'
@@ -334,6 +357,7 @@ class GUI:
         self.startadres['state'] = 'disabled'
         self.regCount['state'] = 'disabled'
         self.poolInterval['state'] = 'disabled'
+
 
     def IPaddressValidate(self):
         return True
@@ -409,8 +433,14 @@ class GUI:
             else:
                 return True
 
+def listSerialPorts():
+    ports = [port[0] for port in serial.tools.list_ports.comports() if port[2] != 'n/a']
+    print(ports)    #jeśli puste to = []
+    return ports
 
 if __name__ == "__main__":
+    ports = listSerialPorts()
+
     window = tkinter.Tk()
     windowWidth = window.winfo_reqwidth()
     windowHeight = window.winfo_reqheight()
@@ -418,6 +448,6 @@ if __name__ == "__main__":
     positionDown = int(window.winfo_screenheight()/2 - windowHeight/2) - 400
     window.geometry("+{}+{}".format(positionRight, positionDown))
     window.minsize(700, 900)#minimalny rozmiar okna
-    GUI = GUI(window)
+    GUI = GUI(window ,ports)
     window.winfo_toplevel().title("Modbus Tester")
     window.mainloop()
