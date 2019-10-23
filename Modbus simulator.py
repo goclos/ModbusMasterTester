@@ -5,13 +5,12 @@ import tkinter.scrolledtext as txt
 from tkinter.font import Font
 #from pyModbusTCP.client import ModbusClient
 #Nowa biblioteka do modbus:
-from pymodbus.client.sync import ModbusTcpClient as ModbusClient
-from pymodbus.transaction import ModbusSocketFramer as ModbusFramer
+from pymodbus3.client.sync import ModbusTcpClient as ModbusClient
+from pymodbus.client.sync import ModbusSerialClient as ModbusSerialClient
 #
 import time
 import threading
 import logging
-from pymodbus.payload import BinaryPayloadDecoder
 import sys
 import glob
 import serial.tools.list_ports
@@ -41,13 +40,12 @@ class GUI:
         self.client = 0
         self.timer = 0
         self.stop_event = threading.Event() #Definiowanie zdarzenia aby móc zatrzymać wątek wysyłania zapytań
-        self.Fmain = ttk.Frame(window)
-        self.Fmain.pack()
-        #tabcontrol = ttk.Notebook(self.Fmain) #Komponent który kontroluje B
+        self.Fmain = ttk.Frame(window, borderwidth = 4,relief="solid")
+        self.Fmain.pack(pady=10, padx=10)
         self.ModbusRadioButtons = ttk.Frame(self.Fmain)
-        self.f1 = ttk.Frame(self.Fmain)   # Ustawienia ogolne Modbus
-        self.ModbusTCPsettings = ttk.Frame(self.Fmain)
-        self.ModbusRTUsetings = ttk.Frame(self.Fmain)   # Ustawienia Modbus RTU
+        self.f1 = ttk.Frame(self.Fmain,  borderwidth = 4,relief="solid")   # Ustawienia ogolne Modbus
+        self.ModbusTCPsettings = ttk.Frame(self.Fmain, borderwidth = 4,relief="solid")
+        self.ModbusRTUsetings = ttk.Frame(self.Fmain,borderwidth = 4,relief="solid")   # Ustawienia Modbus RTU
         self.f3 = ttk.Frame(self.Fmain)      # Ramka z rejestrami w zakładce pierwszej
         self.f4 = ttk.Frame(self.Fmain)       #statystyki
         self.f5 = ttk.Frame(self.Fmain)         #konsola tx/rx
@@ -60,13 +58,12 @@ class GUI:
         self.f4.grid(row=4,column=0,columnspan=4)    #Ramka ze statystykami
         self.f5.grid(row=5,column=0,columnspan=4)   #Ramka z logiem
 
-
-
         self.ModbusMode = tkinter.IntVar()
         self.ModbusTCPradio = tkinter.Radiobutton(self.ModbusRadioButtons, text="Modbus TCP", variable=self.ModbusMode, value=1, command = self.ModbusChange)
         self.ModbusTCPradio.grid(row=0, column=0)
         self.ModbusRTUradio = tkinter.Radiobutton(self.ModbusRadioButtons, text="Modbus RTU", variable=self.ModbusMode, value=2, command = self.ModbusChange)
         self.ModbusRTUradio.grid(row=0, column=1)
+        self.ModbusRTUradio.select()
         self.ModbusTCPradio.select()
 
         #Adres IP
@@ -121,9 +118,8 @@ class GUI:
         self.txrx.grid(row=0, column=1)
         #log:
         myFont = Font(family="Console", size=8)
-        self.console = txt.ScrolledText(self.f5, background="black", font=myFont, foreground="green", width=105,height = 10)
-        self.console.grid(row=1, column=0, columnspan=4, pady=20)
-
+        self.console = txt.ScrolledText(self.f5, background="black", font=myFont, foreground="green", width=105,height = 6)
+        self.console.grid(row=1, column=0, columnspan=4, pady=10)
         #-----------------------------------------------------------------------
 #Druga zakładka:
         #Numer portu COM
@@ -133,14 +129,40 @@ class GUI:
         self.PortCOM = ttk.Combobox(self.ModbusRTUsetings,state="readonly", values = ports) # tworzenie kontrolki Combobox
         self.PortCOM.grid(row=0, column=1) # umieszczenie kontrolki na oknie głównym
         self.PortCOM.current(0) # ustawienie domyślnego indeksu zaznaczenia
-
-
+        #Baudrate
+        self.BaudrateValue = ('50','75','110','134','150','300','600','1200',\
+                            '1800','2400','4800','7200','9600','19200','38400',\
+                            '57600','115200','230400','460800','921600')
+        tkinter.Label(self.ModbusRTUsetings, text="Baudrate:").grid(row=0, column=2,pady=5, padx=5)
+        self.Baudrate = ttk.Combobox(self.ModbusRTUsetings,state="readonly", values = self.BaudrateValue )
+        self.Baudrate.grid(row=0, column=3, pady=5,padx=5)
+        self.Baudrate.current(12)
+        #Data bits
+        self.databits = ('8')
+        tkinter.Label(self.ModbusRTUsetings, text="Data bits:").grid(row=1, column=0,pady=5,padx=5)
+        self.Bits = ttk.Combobox(self.ModbusRTUsetings,state="readonly", values = self.databits )
+        self.Bits.grid(row=1, column=1, pady=5,padx=5)
+        self.Bits.current(0)
+        #Stop bits
+        self.stopbitsValue = ('1','2')
+        tkinter.Label(self.ModbusRTUsetings, text="Stop bits:").grid(row=1, column=2,pady=5,padx=5)
+        self.stopbits = ttk.Combobox(self.ModbusRTUsetings,state="readonly", values = self.stopbitsValue )
+        self.stopbits.grid(row=1, column=3, pady=5,padx=5)
+        self.stopbits.current(0)
+        #Parity
+        self.parityCorrectValue = ('N','E','O','M','S')
+        self.parityValue = ('None','Even','Odd','Mark','Space')    #PARITY_NONE, PARITY_EVEN, PARITY_ODDPARITY_MARK, PARITY_SPACE. Default to 'N'
+        self.parity = tkinter.Label(self.ModbusRTUsetings, text="Parity:").grid(row=2, column=0,pady=5,padx=5)
+        self.parity = ttk.Combobox(self.ModbusRTUsetings,state="readonly", values = self.parityValue)
+        self.parity.grid(row=2, column=1, pady=5,padx=5)
+        self.parity.current(0)
 
         # redirect stdout
         redir = RedirectText(self.console)
         sys.stdout = redir
         # Wylistowanie labelek i form rejestrow
         #self.registerEntry(125, 0)
+
     #Funkcja przełączająca Modbus TCP / RTU
     def ModbusChange(self):
         print(self.ModbusMode.get())
@@ -171,28 +193,44 @@ class GUI:
         regs= 0
         #Funkcje odczytujące
         if SelectedFuncCode == '01-Read coils':
-            regs = self.client.read_coils(int(self.startadres.get()), int(self.regCount.get()))
+            regs = self.client.read_coils(int(self.startadres.get()), int(self.regCount.get()), unit = int(self.serverID.get()))
             zmienne = []
             for i in range(0, int(self.regCount.get())):
-                zmienne.append(regs.getBit(i))
+                zmienne.append(regs.bits[i])
             for index in range(0, len(zmienne)):
                 self.polaRejestow[index].delete(0, 'end') #Usuwanie poprzedniej wartości
                 self.polaRejestow[index].insert(0, int(zmienne[index])) #Dodawanie nowej wartości
 
         if SelectedFuncCode == '02-Read Discrete Inputs':
-            #regs = self.client.read_discrete_inputs(int(self.startadres.get()),int(self.regCount.get()))
-            regs = self.client.read_discrete_inputs(int(self.startadres.get()), int(self.regCount.get()))
+            regs = self.client.read_discrete_inputs(int(self.startadres.get()), int(self.regCount.get()), unit = int(self.serverID.get()))
             zmienne = []
             for i in range(0, int(self.regCount.get())):
-                zmienne.append(regs.getBit(i))
+                zmienne.append(regs.bits[i])
             for index in range(0, len(zmienne)):
                 self.polaRejestow[index].delete(0, 'end') #Usuwanie poprzedniej wartości
                 self.polaRejestow[index].insert(0, int(zmienne[index])) #Dodawanie nowej wartości
 
         if SelectedFuncCode == '03-Read holding Registers':
-            regs = self.client.read_holding_registers(int(self.startadres.get()), int(self.regCount.get()))
+            regs = self.client.read_holding_registers(int(self.startadres.get()), int(self.regCount.get()), unit = int(self.serverID.get()))
+            zmienne = []
+            print(regs)
+            print(int(self.startadres.get()),  int(self.regCount.get()), int(self.serverID.get()))
+            for i in range(0, int(self.regCount.get())):
+                print(i)
+                zmienne.append(regs.registers[i])
+            for index in range(0, len(zmienne)):
+                self.polaRejestow[index].delete(0, 'end') #Usuwanie poprzedniej wartości
+                self.polaRejestow[index].insert(0, int(zmienne[index])) #Dodawanie nowej wartości
+
         if SelectedFuncCode == '04-Read input Registers':
-            regs = self.client.read_input_registers(int(self.startadres.get()), int(self.regCount.get()))
+            regs = self.client.read_input_registers(int(self.startadres.get()), int(self.regCount.get()), unit = int(self.serverID.get()))
+            zmienne = []
+            for i in range(0, int(self.regCount.get())):
+                zmienne.append(regs.registers[i])
+            for index in range(0, len(zmienne)):
+                self.polaRejestow[index].delete(0, 'end') #Usuwanie poprzedniej wartości
+                self.polaRejestow[index].insert(0, int(zmienne[index])) #Dodawanie nowej wartości
+
         #Funkcje zapisujące
         if SelectedFuncCode == '05-Write output coil':
             rejestrDozapisana = 0
@@ -200,8 +238,8 @@ class GUI:
                 rejestrDozapisana = False
             else:
                 rejestrDozapisana = bool(int(self.polaRejestow[0].get()))
-            result = self.client.write_single_coil(int(self.startadres.get()), rejestrDozapisana)
-            if result:
+            result = self.client.write_coil(int(self.startadres.get()), rejestrDozapisana, unit = int(self.serverID.get()))
+            if result.function_code < 0x80:
                 print("Success! Value set")
                 self.start['state'] = 'normal'
                 self.stopSending()
@@ -213,8 +251,8 @@ class GUI:
                 self.console.see("end") #Przewijanie okna konsoli
                 return
         if SelectedFuncCode == '06-Write holding register':
-            result = self.client.write_single_register(int(self.startadres.get()), int(self.polaRejestow[0].get()))
-            if result:
+            result = self.client.write_register(int(self.startadres.get()), int(self.polaRejestow[0].get()), unit = int(self.serverID.get()))
+            if result.function_code < 0x80:
                 print("Success! Value set")
                 self.start['state'] = 'normal'
                 self.stopSending()
@@ -235,9 +273,10 @@ class GUI:
                     continue
                 rejestryBool.append(bool(int(self.polaRejestow[i].get())))
                 rejestryInt.append(int(self.polaRejestow[i].get()))
+
         if SelectedFuncCode == '15-Write output coils':
-            result = self.client.write_multiple_coils(int(self.startadres.get()), rejestryBool)
-            if result:
+            result = self.client.write_coils(int(self.startadres.get()), rejestryBool, unit = int(self.serverID.get()))
+            if result.function_code < 0x80:
                 print("Success! Coils set")
                 self.start['state'] = 'normal'
                 self.stopSending()
@@ -248,9 +287,10 @@ class GUI:
                 self.stopSending()
                 self.console.see("end") #Przewijanie okna konsoli
                 return
+
         if SelectedFuncCode == '16-Write output registers':
-            result = self.client.write_multiple_registers(int(self.startadres.get()), rejestryInt)
-            if result:
+            result = self.client.write_registers(int(self.startadres.get()), rejestryInt, unit = int(self.serverID.get()))
+            if result.function_code < 0x80:
                 print("Success! Coils set")
                 self.start['state'] = 'normal'
                 self.stopSending()
@@ -333,16 +373,32 @@ class GUI:
         if not self.PoolIntervalValidate():
             return
 
-        #self.client = ModbusClient(host=str(self.IPaddress.get()), \
-        #port=int(self.TCPport.get()), auto_open=True,timeout=3, unit_id=int(self.serverID.get()),debug=True)
-        self.client = ModbusClient(host=str(self.IPaddress.get()), port=int(self.TCPport.get()), unit_id=int(self.serverID.get()),timeout=3, framer=ModbusFramer)
-        if self.client.connect() != True:
-            print("Error with host or port params")
-            messagebox.showinfo("Info", 'Error with host or port params')
-            self.disconnected()
-            return
+        parityValue = None
+        for i in range(0 , 5):
+            if self.parityValue[i] == self.parity.get():
+                parityValue = self.parityCorrectValue[i]
+                print(parityValue)
+                break
+        print("slef.ModbusMode: ", self.ModbusMode.get())
+        if self.ModbusMode.get() == 1: #TCP
+            self.client = ModbusClient(host=self.IPaddress.get(), port=int(self.TCPport.get()),timeout=3)
+            print(self.client.connect())
+        else:                   #RTU
+            self.client = ModbusSerialClient(method='rtu', port=str(self.PortCOM.get()),\
+                                        stopbits=int(self.stopbits.get()), bytesize=8, \
+                                        timeout=3, baudrate= int(self.Baudrate.get()), \
+                                        parity = parityValue)
+            self.client.connect()
+
+        print(self.PortCOM.get(),int(self.stopbits.get()),int(self.Baudrate.get()), parityValue)
+
+        #self.client = ModbusClient(host=str(self.IPaddress.get()), port=int(self.TCPport.get()), unit_id=int(self.serverID.get()),timeout=3, framer=ModbusFramer)
+        #if self.client.connect() != True:
+        #    print("Error with host or port params")
+        #    messagebox.showinfo("Info", 'Error with host or port params')
+        #    self.disconnected()
+        #    return
         self.connected()
-        #print(self.client)
         self.registerEntry(int(self.regCount.get()), int(self.startadres.get()))
 
     def tcpClose(self):

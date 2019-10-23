@@ -3,6 +3,7 @@ TODO_
 -Dodanie labelek i form do wpisywania, wybieraniaparamatrow RTU:
 client= ModbusClient(method = "rtu", port="/dev/ttyUSB0",stopbits = 1, bytesize = 8, parity = 'E' baudrate= 9600)
 https://raspberrypi.stackexchange.com/questions/22712/pymodbus-rtu-rs-485-communication
+-DOdanie wyświetlania błędów
 
 def self.IPaddressValidate(self,char):
 def self.TCPportValidate(self,char):
