@@ -3,10 +3,10 @@ from tkinter import ttk
 from tkinter import messagebox
 import tkinter.scrolledtext as txt
 from tkinter.font import Font
-#from pyModbusTCP.client import ModbusClient
-#Nowa biblioteka do modbus:
-from pymodbus3.client.sync import ModbusTcpClient as ModbusClient
+from pymodbus.client.sync import ModbusTcpClient as ModbusClient
 from pymodbus.client.sync import ModbusSerialClient as ModbusSerialClient
+import logging.handlers as Handlers
+from io import StringIO
 #
 import time
 import threading
@@ -24,7 +24,7 @@ class RedirectText(object):
         self.output.insert(tkinter.END, string)
 
 class GUI:
-    def __init__(self, window, ports):
+    def __init__(self, window, ports, bgColor):
         sys.stdout = self          # Set stdout here
         odstepyX = 15
         odstepyY = 5
@@ -39,16 +39,18 @@ class GUI:
         self.labelkiRejestrow = {}
         self.client = 0
         self.timer = 0
+        kolorLabelek = "#c4c4c4"
+        fontLabelek = ("Arial", 11, "bold")
         self.stop_event = threading.Event() #Definiowanie zdarzenia aby móc zatrzymać wątek wysyłania zapytań
-        self.Fmain = ttk.Frame(window, borderwidth = 4,relief="solid")
+        self.Fmain = tkinter.Frame(window, borderwidth = 2,relief="groove", bg=bgColor)
         self.Fmain.pack(pady=10, padx=10)
-        self.ModbusRadioButtons = ttk.Frame(self.Fmain)
-        self.f1 = ttk.Frame(self.Fmain,  borderwidth = 4,relief="solid")   # Ustawienia ogolne Modbus
-        self.ModbusTCPsettings = ttk.Frame(self.Fmain, borderwidth = 4,relief="solid")
-        self.ModbusRTUsetings = ttk.Frame(self.Fmain,borderwidth = 4,relief="solid")   # Ustawienia Modbus RTU
-        self.f3 = ttk.Frame(self.Fmain)      # Ramka z rejestrami w zakładce pierwszej
-        self.f4 = ttk.Frame(self.Fmain)       #statystyki
-        self.f5 = ttk.Frame(self.Fmain)         #konsola tx/rx
+        self.ModbusRadioButtons = tkinter.Frame(self.Fmain,borderwidth = 2,relief="groove", bg=bgColor)
+        self.f1 = tkinter.Frame(self.Fmain,  borderwidth = 2,relief="groove", bg=bgColor)   # Ustawienia ogolne Modbus
+        self.ModbusTCPsettings = tkinter.Frame(self.Fmain,borderwidth = 2,relief="groove", bg=bgColor)
+        self.ModbusRTUsetings = tkinter.Frame(self.Fmain,borderwidth = 2,relief="groove", bg=bgColor)   # Ustawienia Modbus RTU
+        self.f3 = tkinter.Frame(self.Fmain,bg=bgColor)      # Ramka z rejestrami w zakładce pierwszej
+        self.f4 = tkinter.Frame(self.Fmain,bg=bgColor)       #statystyki
+        self.f5 = tkinter.Frame(self.Fmain,bg=bgColor)         #konsola tx/rx
         #Pakowanie
         self.ModbusRadioButtons.grid(row=0,column=0,columnspan=4,pady=10)
         self.ModbusTCPsettings.grid(row=1,column=0,columnspan=4)
@@ -59,52 +61,55 @@ class GUI:
         self.f5.grid(row=5,column=0,columnspan=4)   #Ramka z logiem
 
         self.ModbusMode = tkinter.IntVar()
-        self.ModbusTCPradio = tkinter.Radiobutton(self.ModbusRadioButtons, text="Modbus TCP", variable=self.ModbusMode, value=1, command = self.ModbusChange)
+        self.ModbusTCPradio = tkinter.Radiobutton(self.ModbusRadioButtons, text="Modbus TCP", variable=self.ModbusMode, value=1, command = self.ModbusChange,bg=bgColor)
         self.ModbusTCPradio.grid(row=0, column=0)
-        self.ModbusRTUradio = tkinter.Radiobutton(self.ModbusRadioButtons, text="Modbus RTU", variable=self.ModbusMode, value=2, command = self.ModbusChange)
+        self.ModbusRTUradio = tkinter.Radiobutton(self.ModbusRadioButtons, text="Modbus RTU", variable=self.ModbusMode, value=2, command = self.ModbusChange,bg=bgColor)
         self.ModbusRTUradio.grid(row=0, column=1)
         self.ModbusRTUradio.select()
         self.ModbusTCPradio.select()
 
+
         #Adres IP
-        tkinter.Label(self.ModbusTCPsettings, text="IP address:").grid(row=1, column=0)
-        self.IPaddress = tkinter.Entry(self.ModbusTCPsettings, width=15)
-        self.IPaddress.grid(row=1, column=1,padx = odstepyX, pady=odstepyY)
+        labelkaIP = tkinter.Label(self.ModbusTCPsettings, text="IP address:", bg=bgColor)
+        #labelkaIP.configure(font=fontLabelek)
+        labelkaIP.grid(row=1, column=0, padx = odstepyX)
+        self.IPaddress = tkinter.Entry(self.ModbusTCPsettings, width=15, relief='sunken', borderwidth=3)
+        self.IPaddress.grid(row=1, column=1,padx = 5)
         self.IPaddress.insert(0, "127.0.0.1")
         #Port TCP
-        tkinter.Label(self.ModbusTCPsettings, text="TCP port:").grid(row=1, column=2)
-        self.TCPport = tkinter.Entry(self.ModbusTCPsettings)
+        tkinter.Label(self.ModbusTCPsettings, text="TCP port:",bg=bgColor).grid(row=1, column=2)
+        self.TCPport = tkinter.Entry(self.ModbusTCPsettings, relief='sunken', borderwidth=3)
         self.TCPport.grid(row=1, column=3,padx = odstepyX, pady=odstepyY)
         self.TCPport.insert(0, "502")
         #Server ID
-        tkinter.Label(self.f1, text="Server / Slave ID:").grid(row=2, column=0)
-        self.serverID = tkinter.Entry(self.f1,width=15)
+        tkinter.Label(self.f1, text="Server / Slave ID:",bg=bgColor).grid(row=2, column=0)
+        self.serverID = tkinter.Entry(self.f1,width=15, relief='sunken', borderwidth=3)
         self.serverID.grid(row=2, column=1,padx = odstepyX , pady=odstepyY)
         self.serverID.insert(0, "1")
         #Function code
-        tkinter.Label(self.f1, text="Function code:").grid(row=2, column=2)
+        tkinter.Label(self.f1, text="Function code:",bg=bgColor).grid(row=2, column=2)
         self.FuncCode = ttk.Combobox(self.f1, values = self.kodyFunkcji,state="readonly") # tworzenie kontrolki Combobox
         self.FuncCode.bind('<<ComboboxSelected>>', self.on_select_changed)
         self.FuncCode.grid(row=2, column=3) # umieszczenie kontrolki na oknie głównym
         self.FuncCode.current(0) # ustawienie domyślnego indeksu zaznaczenia
         #Start address
-        tkinter.Label(self.f1, text="Start address (dec):").grid(row=3, column=0)
-        self.startadres = tkinter.Entry(self.f1,width=15)
+        tkinter.Label(self.f1, text="Start address (dec):",bg=bgColor).grid(row=3, column=0)
+        self.startadres = tkinter.Entry(self.f1,width=15, relief='sunken', borderwidth=3)
         self.startadres.grid(row=3, column=1,padx = odstepyX, pady=odstepyY )
         self.startadres.insert(0, "0")
         #register count
-        tkinter.Label(self.f1, text="Register count:").grid(row=4, column=0)
-        self.regCount = tkinter.Entry(self.f1,width=15)
+        tkinter.Label(self.f1, text="Register count:",bg=bgColor).grid(row=4, column=0)
+        self.regCount = tkinter.Entry(self.f1,width=15, relief='sunken', borderwidth=3)
         self.regCount.grid(row=4, column=1,padx = odstepyX, pady=odstepyY )
         self.regCount.insert(0, "1")
         #Pool interval
-        tkinter.Label(self.f1, text="Poll interval (ms):").grid(row=3, column=2)
-        self.poolInterval = tkinter.Entry(self.f1)
+        tkinter.Label(self.f1, text="Poll interval (ms):",bg=bgColor).grid(row=3, column=2)
+        self.poolInterval = tkinter.Entry(self.f1, relief='sunken', borderwidth=3)
         self.poolInterval.grid(row=3, column=3,padx = odstepyX , pady=odstepyY)
         self.poolInterval.insert(0, "500")
         #Przyciski Start stop
         self.connect = tkinter.Button(self.f1, text = "Connect", height=2, width=10, command=self.tcpConnect)
-        self.connect.grid(row=5, column=0)
+        self.connect.grid(row=5, column=0, pady=20, padx=30)
         self.start = tkinter.Button(self.f1, text = "Start", height=2, width=10, command=self.startSending, state='disabled')
         self.start.grid(row=5, column=1)
         self.stop = tkinter.Button(self.f1, text = "Stop", height=2,width=10, command=self.stopSending, state='disabled')
@@ -113,17 +118,18 @@ class GUI:
         self.disco.grid(row=5, column=3)
         #Statystyki
         self.txcounter = 0
-        tkinter.Label(self.f4, text="Transmitted requests:").grid(row=0, column=0)
-        self.txrx = tkinter.Label(self.f4, text="{0}".format(self.txcounter))
+        requests = tkinter.Label(self.f4, text="Transmitted requests:", bg=bgColor)
+        requests.grid(row=0, column=0)
+        self.txrx = tkinter.Label(self.f4, text="{0}".format(self.txcounter),bg=bgColor)
         self.txrx.grid(row=0, column=1)
         #log:
         myFont = Font(family="Console", size=8)
-        self.console = txt.ScrolledText(self.f5, background="black", font=myFont, foreground="green", width=105,height = 6)
+        self.console = txt.ScrolledText(self.f5, background="black", font=myFont, foreground="green", width=105,height = 6 )
         self.console.grid(row=1, column=0, columnspan=4, pady=10)
         #-----------------------------------------------------------------------
 #Druga zakładka:
         #Numer portu COM
-        tkinter.Label(self.ModbusRTUsetings, text="COM port:").grid(row=0, column=0)
+        tkinter.Label(self.ModbusRTUsetings, text="COM port:",bg=bgColor).grid(row=0, column=0)
         if ports == []:
             ports = ["None"]
         self.PortCOM = ttk.Combobox(self.ModbusRTUsetings,state="readonly", values = ports) # tworzenie kontrolki Combobox
@@ -133,39 +139,47 @@ class GUI:
         self.BaudrateValue = ('50','75','110','134','150','300','600','1200',\
                             '1800','2400','4800','7200','9600','19200','38400',\
                             '57600','115200','230400','460800','921600')
-        tkinter.Label(self.ModbusRTUsetings, text="Baudrate:").grid(row=0, column=2,pady=5, padx=5)
+        tkinter.Label(self.ModbusRTUsetings, text="Baudrate:",bg=bgColor).grid(row=0, column=2,pady=5, padx=5)
         self.Baudrate = ttk.Combobox(self.ModbusRTUsetings,state="readonly", values = self.BaudrateValue )
         self.Baudrate.grid(row=0, column=3, pady=5,padx=5)
         self.Baudrate.current(12)
         #Data bits
         self.databits = ('8')
-        tkinter.Label(self.ModbusRTUsetings, text="Data bits:").grid(row=1, column=0,pady=5,padx=5)
+        tkinter.Label(self.ModbusRTUsetings, text="Data bits:",bg=bgColor).grid(row=1, column=0,pady=5,padx=5)
         self.Bits = ttk.Combobox(self.ModbusRTUsetings,state="readonly", values = self.databits )
         self.Bits.grid(row=1, column=1, pady=5,padx=5)
         self.Bits.current(0)
         #Stop bits
         self.stopbitsValue = ('1','2')
-        tkinter.Label(self.ModbusRTUsetings, text="Stop bits:").grid(row=1, column=2,pady=5,padx=5)
+        tkinter.Label(self.ModbusRTUsetings, text="Stop bits:",bg=bgColor).grid(row=1, column=2,pady=5,padx=5)
         self.stopbits = ttk.Combobox(self.ModbusRTUsetings,state="readonly", values = self.stopbitsValue )
         self.stopbits.grid(row=1, column=3, pady=5,padx=5)
         self.stopbits.current(0)
         #Parity
         self.parityCorrectValue = ('N','E','O','M','S')
         self.parityValue = ('None','Even','Odd','Mark','Space')    #PARITY_NONE, PARITY_EVEN, PARITY_ODDPARITY_MARK, PARITY_SPACE. Default to 'N'
-        self.parity = tkinter.Label(self.ModbusRTUsetings, text="Parity:").grid(row=2, column=0,pady=5,padx=5)
+        self.parity = tkinter.Label(self.ModbusRTUsetings, text="Parity:",bg=bgColor).grid(row=2, column=0,pady=5,padx=5)
         self.parity = ttk.Combobox(self.ModbusRTUsetings,state="readonly", values = self.parityValue)
         self.parity.grid(row=2, column=1, pady=5,padx=5)
         self.parity.current(0)
 
-        # redirect stdout
+        FORMAT = ('%(asctime)-15s %(message)s')
         redir = RedirectText(self.console)
+        logging.basicConfig(format=FORMAT,stream=redir, level=logging.DEBUG)
+        log = logging.getLogger()
+        log.setLevel(logging.DEBUG)
+
+        # redirect stdout
         sys.stdout = redir
-        # Wylistowanie labelek i form rejestrow
-        #self.registerEntry(125, 0)
+
+
+    def consoleFunc(self):
+        self.console.insert(INSERT, "Some text")
+        self.console.insert(END, " in ScrolledText")
 
     #Funkcja przełączająca Modbus TCP / RTU
     def ModbusChange(self):
-        print(self.ModbusMode.get())
+        #print(self.ModbusMode.get())
         if self.ModbusMode.get() == 1:
             self.ModbusTCPsettings.grid(row=1,column=0,columnspan=4)
             self.ModbusRTUsetings.grid_forget()
@@ -188,7 +202,7 @@ class GUI:
         self.timer.start()
 
     def readWrite(self):
-        print("\n#",self.txcounter,": ")
+        print("")
         SelectedFuncCode = self.FuncCode.get()
         regs= 0
         #Funkcje odczytujące
@@ -213,10 +227,11 @@ class GUI:
         if SelectedFuncCode == '03-Read holding Registers':
             regs = self.client.read_holding_registers(int(self.startadres.get()), int(self.regCount.get()), unit = int(self.serverID.get()))
             zmienne = []
-            print(regs)
-            print(int(self.startadres.get()),  int(self.regCount.get()), int(self.serverID.get()))
+            #print(regs)
+            #print(int(self.startadres.get()),  int(self.regCount.get()), int(self.serverID.get()))
+            #decoder = BinaryPayloadDecoder.fromRegisters(regs.registers, byteorder=Endian.Big, wordorder=Endian.Little)
+            #print(decoder)
             for i in range(0, int(self.regCount.get())):
-                print(i)
                 zmienne.append(regs.registers[i])
             for index in range(0, len(zmienne)):
                 self.polaRejestow[index].delete(0, 'end') #Usuwanie poprzedniej wartości
@@ -237,6 +252,11 @@ class GUI:
             if self.polaRejestow[0].get() == "":
                 rejestrDozapisana = False
             else:
+                if not self.polaRejestow[0].get().isnumeric():
+                    messagebox.showinfo("Info", 'Typed value is not numeric!')
+                    self.stopSending()
+                    self.console.see("end") #Przewijanie okna konsoli
+                    return
                 rejestrDozapisana = bool(int(self.polaRejestow[0].get()))
             result = self.client.write_coil(int(self.startadres.get()), rejestrDozapisana, unit = int(self.serverID.get()))
             if result.function_code < 0x80:
@@ -251,6 +271,11 @@ class GUI:
                 self.console.see("end") #Przewijanie okna konsoli
                 return
         if SelectedFuncCode == '06-Write holding register':
+            if not self.polaRejestow[0].get().isnumeric():
+                messagebox.showinfo("Info", 'Typed value is not numeric!')
+                self.stopSending()
+                self.console.see("end") #Przewijanie okna konsoli
+                return
             result = self.client.write_register(int(self.startadres.get()), int(self.polaRejestow[0].get()), unit = int(self.serverID.get()))
             if result.function_code < 0x80:
                 print("Success! Value set")
@@ -271,6 +296,11 @@ class GUI:
                     rejestryBool.append(False)
                     rejestryInt.append(0)
                     continue
+                if not self.polaRejestow[i].get().isnumeric():
+                    messagebox.showinfo("Info", 'Typed value is not numeric!')
+                    self.stopSending()
+                    self.console.see("end") #Przewijanie okna konsoli
+                    return
                 rejestryBool.append(bool(int(self.polaRejestow[i].get())))
                 rejestryInt.append(int(self.polaRejestow[i].get()))
 
@@ -308,6 +338,8 @@ class GUI:
             #print("Kod błędu: ",self.client.last_error())
             self.disconnected()
             return False
+
+
         #for index , element in enumerate(regs):
             #print(index, element)
         #    self.polaRejestow[index].delete(0, 'end') #Usuwanie poprzedniej wartości
@@ -342,7 +374,7 @@ class GUI:
         while count != 0:              #Budowanie form rejestrów
             for x in range(0,16,2):    #iterowanie po x
                 for y in range(0,20):   #iterowanie po y
-                    self.labelkiRejestrow [index] = tkinter.Label(self.f3 , text="{0}.".format(index+startLabel))
+                    self.labelkiRejestrow [index] = tkinter.Label(self.f3 , text="{0}.".format(index+startLabel),bg=bgColor)
                     self.labelkiRejestrow [index].grid(row=4+y, column=x, sticky='e',padx=4,pady=1)
                     self.polaRejestow [index]= tkinter.Entry(self.f3,width=8, bd=1)
                     self.polaRejestow[index].insert(0, "0")
@@ -377,27 +409,27 @@ class GUI:
         for i in range(0 , 5):
             if self.parityValue[i] == self.parity.get():
                 parityValue = self.parityCorrectValue[i]
-                print(parityValue)
+                #print(parityValue)
                 break
-        print("slef.ModbusMode: ", self.ModbusMode.get())
+        #print("slef.ModbusMode: ", self.ModbusMode.get())
         if self.ModbusMode.get() == 1: #TCP
             self.client = ModbusClient(host=self.IPaddress.get(), port=int(self.TCPport.get()),timeout=3)
-            print(self.client.connect())
-        else:                   #RTU
+            if not self.client.connect():  #Walidacja połączenia
+                messagebox.showinfo("Info", 'Cannot connect to TCP slave / server, \
+                                    check IP address or/and TCP port')
+                return
+
+        else:                           #RTU
             self.client = ModbusSerialClient(method='rtu', port=str(self.PortCOM.get()),\
                                         stopbits=int(self.stopbits.get()), bytesize=8, \
                                         timeout=3, baudrate= int(self.Baudrate.get()), \
                                         parity = parityValue)
-            self.client.connect()
+            if not self.client.connect():   #Walidacja otarcia portu COM
+                messagebox.showinfo("Info", 'Cannot open such serial port, check \
+                                    if this port exist in system, and is not opened \
+                                    by another application')
+                return
 
-        print(self.PortCOM.get(),int(self.stopbits.get()),int(self.Baudrate.get()), parityValue)
-
-        #self.client = ModbusClient(host=str(self.IPaddress.get()), port=int(self.TCPport.get()), unit_id=int(self.serverID.get()),timeout=3, framer=ModbusFramer)
-        #if self.client.connect() != True:
-        #    print("Error with host or port params")
-        #    messagebox.showinfo("Info", 'Error with host or port params')
-        #    self.disconnected()
-        #    return
         self.connected()
         self.registerEntry(int(self.regCount.get()), int(self.startadres.get()))
 
@@ -420,6 +452,8 @@ class GUI:
         self.startadres['state'] = 'normal'
         self.regCount['state'] = 'normal'
         self.poolInterval['state'] = 'normal'
+        self.ModbusRTUradio['state'] = 'normal'
+        self.ModbusTCPradio['state'] = 'normal'
 
 
     def connected(self):
@@ -434,6 +468,8 @@ class GUI:
         self.startadres['state'] = 'disabled'
         self.regCount['state'] = 'disabled'
         self.poolInterval['state'] = 'disabled'
+        self.ModbusRTUradio['state'] = 'disabled'
+        self.ModbusTCPradio['state'] = 'disabled'
 
 
     def IPaddressValidate(self):
@@ -512,10 +548,11 @@ class GUI:
 
 def listSerialPorts():
     ports = [port[0] for port in serial.tools.list_ports.comports() if port[2] != 'n/a']
-    print(ports)    #jeśli puste to = []
+    #print(ports)    #jeśli puste to = []
     return ports
 
 if __name__ == "__main__":
+    bgColor = "#c4c4c4"
     ports = listSerialPorts()
 
     window = tkinter.Tk()
@@ -525,6 +562,7 @@ if __name__ == "__main__":
     positionDown = int(window.winfo_screenheight()/2 - windowHeight/2) - 400
     window.geometry("+{}+{}".format(positionRight, positionDown))
     window.minsize(700, 900)#minimalny rozmiar okna
-    GUI = GUI(window ,ports)
+    window.configure(background=bgColor)
+    GUI = GUI(window ,ports,bgColor)
     window.winfo_toplevel().title("Modbus Tester")
     window.mainloop()
