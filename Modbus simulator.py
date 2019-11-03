@@ -7,7 +7,6 @@ from pymodbus.client.sync import ModbusTcpClient as ModbusClient
 from pymodbus.client.sync import ModbusSerialClient as ModbusSerialClient
 import logging.handlers as Handlers
 from io import StringIO
-#
 import time
 import threading
 import logging
@@ -20,8 +19,24 @@ class RedirectText(object):
     def __init__(self, text_ctrl):
         self.output = text_ctrl
 
+    def flush(self):
+        return
+
     def write(self, string):
-        self.output.insert(tkinter.END, string)
+        listaLinii = string.split('\n')
+        filtrZakazany = ['Running transaction','Running transaction',\
+                        'Changing state','New Transaction state',\
+                        'Getting Frame','Factory Response','Frame advanced',\
+                        'Adding transaction','Getting transaction',\
+                        'Changing transaction state','Current transaction state',"Processing"]
+        for elem in listaLinii:     #
+            marker=False
+            for item in filtrZakazany:
+                if item in elem:
+                    marker = True
+            if not marker:
+                if not elem=="":
+                    self.output.insert(tkinter.END, elem+"\n")
 
 class GUI:
     def __init__(self, window, ports, bgColor):
@@ -123,15 +138,32 @@ class GUI:
         self.txrx = tkinter.Label(self.f4, text="{0}".format(self.txcounter),bg=bgColor)
         self.txrx.grid(row=0, column=1)
         #log:
+        self.podpisLoga= tkinter.Label(self.f5, text="Transmission log", bg=bgColor)
+        self.podpisLoga.grid(row=0, column=0, columnspan=4, pady=5)
         myFont = Font(family="Console", size=8)
-        self.console = txt.ScrolledText(self.f5, background="black", font=myFont, foreground="green", width=105,height = 6 )
-        self.console.grid(row=1, column=0, columnspan=4, pady=10)
+        self.console = txt.ScrolledText(self.f5, background="black", font=myFont, foreground="green", width=105,height = 6)
+        self.console.grid(row=1, column=0, columnspan=4)
         #-----------------------------------------------------------------------
 #Druga zakładka:
         #Numer portu COM
         tkinter.Label(self.ModbusRTUsetings, text="COM port:",bg=bgColor).grid(row=0, column=0)
         if ports == []:
             ports = ["None"]
+        ManualComPorts=["Manual port selection:",'COM1','COM2','COM3','COM4','COM5','COM6','COM7','COM8',\
+                        'COM9','COM10','COM11','COM12','COM13','COM14','COM15',\
+                        'COM16','COM17','COM18','COM19','COM20','COM21','COM22',\
+                        'COM23','COM24','COM25','COM26','COM27','COM28','COM29',\
+                        'COM30','COM31','COM32','COM33','COM34','COM35','COM36',\
+                        'COM37','COM38','COM39','COM40','COM41','COM42','COM43',\
+                        'COM44','COM45','COM46','COM47','COM48','COM49','COM50',\
+                        'COM51','COM52','COM53','COM54','COM55','COM56','COM57',\
+                        'COM58','COM59','COM60','COM61','COM62','COM63','COM64',\
+                        'COM65','COM66','COM67','COM68','COM69','COM70','COM71',\
+                        'COM72','COM73','COM74','COM75','COM76','COM77','COM78',\
+                        'COM79','COM80','COM81','COM82','COM83','COM84','COM85',\
+                        'COM86','COM87','COM88','COM89','COM90','COM91','COM92',\
+                        'COM93','COM94','COM95','COM96','COM97','COM98','COM99','COM100']
+        ports = ports + ManualComPorts
         self.PortCOM = ttk.Combobox(self.ModbusRTUsetings,state="readonly", values = ports) # tworzenie kontrolki Combobox
         self.PortCOM.grid(row=0, column=1) # umieszczenie kontrolki na oknie głównym
         self.PortCOM.current(0) # ustawienie domyślnego indeksu zaznaczenia
@@ -169,13 +201,9 @@ class GUI:
         log = logging.getLogger()
         log.setLevel(logging.DEBUG)
 
-        # redirect stdout
+        # Przekierowanie wyjścia
         sys.stdout = redir
 
-
-    def consoleFunc(self):
-        self.console.insert(INSERT, "Some text")
-        self.console.insert(END, " in ScrolledText")
 
     #Funkcja przełączająca Modbus TCP / RTU
     def ModbusChange(self):
@@ -205,132 +233,138 @@ class GUI:
         print("")
         SelectedFuncCode = self.FuncCode.get()
         regs= 0
-        #Funkcje odczytujące
-        if SelectedFuncCode == '01-Read coils':
-            regs = self.client.read_coils(int(self.startadres.get()), int(self.regCount.get()), unit = int(self.serverID.get()))
-            zmienne = []
-            for i in range(0, int(self.regCount.get())):
-                zmienne.append(regs.bits[i])
-            for index in range(0, len(zmienne)):
-                self.polaRejestow[index].delete(0, 'end') #Usuwanie poprzedniej wartości
-                self.polaRejestow[index].insert(0, int(zmienne[index])) #Dodawanie nowej wartości
+        try:
+            #Funkcje odczytujące
+            if SelectedFuncCode == '01-Read coils':
+                regs = self.client.read_coils(int(self.startadres.get()), int(self.regCount.get()), unit = int(self.serverID.get()))
+                zmienne = []
+                for i in range(0, int(self.regCount.get())):
+                    zmienne.append(regs.bits[i])
+                for index in range(0, len(zmienne)):
+                    self.polaRejestow[index].delete(0, 'end') #Usuwanie poprzedniej wartości
+                    self.polaRejestow[index].insert(0, int(zmienne[index])) #Dodawanie nowej wartości
 
-        if SelectedFuncCode == '02-Read Discrete Inputs':
-            regs = self.client.read_discrete_inputs(int(self.startadres.get()), int(self.regCount.get()), unit = int(self.serverID.get()))
-            zmienne = []
-            for i in range(0, int(self.regCount.get())):
-                zmienne.append(regs.bits[i])
-            for index in range(0, len(zmienne)):
-                self.polaRejestow[index].delete(0, 'end') #Usuwanie poprzedniej wartości
-                self.polaRejestow[index].insert(0, int(zmienne[index])) #Dodawanie nowej wartości
+            if SelectedFuncCode == '02-Read Discrete Inputs':
+                regs = self.client.read_discrete_inputs(int(self.startadres.get()), int(self.regCount.get()), unit = int(self.serverID.get()))
+                zmienne = []
+                for i in range(0, int(self.regCount.get())):
+                    zmienne.append(regs.bits[i])
+                for index in range(0, len(zmienne)):
+                    self.polaRejestow[index].delete(0, 'end') #Usuwanie poprzedniej wartości
+                    self.polaRejestow[index].insert(0, int(zmienne[index])) #Dodawanie nowej wartości
 
-        if SelectedFuncCode == '03-Read holding Registers':
-            regs = self.client.read_holding_registers(int(self.startadres.get()), int(self.regCount.get()), unit = int(self.serverID.get()))
-            zmienne = []
-            #print(regs)
-            #print(int(self.startadres.get()),  int(self.regCount.get()), int(self.serverID.get()))
-            #decoder = BinaryPayloadDecoder.fromRegisters(regs.registers, byteorder=Endian.Big, wordorder=Endian.Little)
-            #print(decoder)
-            for i in range(0, int(self.regCount.get())):
-                zmienne.append(regs.registers[i])
-            for index in range(0, len(zmienne)):
-                self.polaRejestow[index].delete(0, 'end') #Usuwanie poprzedniej wartości
-                self.polaRejestow[index].insert(0, int(zmienne[index])) #Dodawanie nowej wartości
+            if SelectedFuncCode == '03-Read holding Registers':
+                regs = self.client.read_holding_registers(int(self.startadres.get()), int(self.regCount.get()), unit = int(self.serverID.get()))
+                zmienne = []
+                #print(regs)
+                #print(int(self.startadres.get()),  int(self.regCount.get()), int(self.serverID.get()))
+                #decoder = BinaryPayloadDecoder.fromRegisters(regs.registers, byteorder=Endian.Big, wordorder=Endian.Little)
+                #print(decoder)
+                for i in range(0, int(self.regCount.get())):
+                    zmienne.append(regs.registers[i])
+                for index in range(0, len(zmienne)):
+                    self.polaRejestow[index].delete(0, 'end') #Usuwanie poprzedniej wartości
+                    self.polaRejestow[index].insert(0, int(zmienne[index])) #Dodawanie nowej wartości
 
-        if SelectedFuncCode == '04-Read input Registers':
-            regs = self.client.read_input_registers(int(self.startadres.get()), int(self.regCount.get()), unit = int(self.serverID.get()))
-            zmienne = []
-            for i in range(0, int(self.regCount.get())):
-                zmienne.append(regs.registers[i])
-            for index in range(0, len(zmienne)):
-                self.polaRejestow[index].delete(0, 'end') #Usuwanie poprzedniej wartości
-                self.polaRejestow[index].insert(0, int(zmienne[index])) #Dodawanie nowej wartości
+            if SelectedFuncCode == '04-Read input Registers':
+                regs = self.client.read_input_registers(int(self.startadres.get()), int(self.regCount.get()), unit = int(self.serverID.get()))
+                zmienne = []
+                for i in range(0, int(self.regCount.get())):
+                    zmienne.append(regs.registers[i])
+                for index in range(0, len(zmienne)):
+                    self.polaRejestow[index].delete(0, 'end') #Usuwanie poprzedniej wartości
+                    self.polaRejestow[index].insert(0, int(zmienne[index])) #Dodawanie nowej wartości
 
-        #Funkcje zapisujące
-        if SelectedFuncCode == '05-Write output coil':
-            rejestrDozapisana = 0
-            if self.polaRejestow[0].get() == "":
-                rejestrDozapisana = False
-            else:
+            #Funkcje zapisujące
+            if SelectedFuncCode == '05-Write output coil':
+                rejestrDozapisana = 0
+                if self.polaRejestow[0].get() == "":
+                    rejestrDozapisana = False
+                else:
+                    if not self.polaRejestow[0].get().isnumeric():
+                        messagebox.showinfo("Info", 'Typed value is not numeric!')
+                        self.stopSending()
+                        self.console.see("end") #Przewijanie okna konsoli
+                        return
+                    rejestrDozapisana = bool(int(self.polaRejestow[0].get()))
+                result = self.client.write_coil(int(self.startadres.get()), rejestrDozapisana, unit = int(self.serverID.get()))
+                if result.function_code < 0x80:
+                    print("Success! Value set")
+                    self.start['state'] = 'normal'
+                    self.stopSending()
+                    self.console.see("end") #Przewijanie okna konsoli
+                    return
+                else:
+                    print("Write coil failed")
+                    self.stopSending()
+                    self.console.see("end") #Przewijanie okna konsoli
+                    return
+            if SelectedFuncCode == '06-Write holding register':
                 if not self.polaRejestow[0].get().isnumeric():
                     messagebox.showinfo("Info", 'Typed value is not numeric!')
                     self.stopSending()
                     self.console.see("end") #Przewijanie okna konsoli
                     return
-                rejestrDozapisana = bool(int(self.polaRejestow[0].get()))
-            result = self.client.write_coil(int(self.startadres.get()), rejestrDozapisana, unit = int(self.serverID.get()))
-            if result.function_code < 0x80:
-                print("Success! Value set")
-                self.start['state'] = 'normal'
-                self.stopSending()
-                self.console.see("end") #Przewijanie okna konsoli
-                return
-            else:
-                print("Write coil failed")
-                self.stopSending()
-                self.console.see("end") #Przewijanie okna konsoli
-                return
-        if SelectedFuncCode == '06-Write holding register':
-            if not self.polaRejestow[0].get().isnumeric():
-                messagebox.showinfo("Info", 'Typed value is not numeric!')
-                self.stopSending()
-                self.console.see("end") #Przewijanie okna konsoli
-                return
-            result = self.client.write_register(int(self.startadres.get()), int(self.polaRejestow[0].get()), unit = int(self.serverID.get()))
-            if result.function_code < 0x80:
-                print("Success! Value set")
-                self.start['state'] = 'normal'
-                self.stopSending()
-                self.console.see("end") #Przewijanie okna konsoli
-                return
-            else:
-                print("Write register failed")
-                self.stopSending()
-                self.console.see("end") #Przewijanie okna konsoli
-                return
-        if SelectedFuncCode == '15-Write output coils' or SelectedFuncCode =='16-Write output registers':
-            rejestryBool=[]
-            rejestryInt=[]
-            for i in range(0, int(self.regCount.get())):
-                if self.polaRejestow[i].get() == "":
-                    rejestryBool.append(False)
-                    rejestryInt.append(0)
-                    continue
-                if not self.polaRejestow[i].get().isnumeric():
-                    messagebox.showinfo("Info", 'Typed value is not numeric!')
+                result = self.client.write_register(int(self.startadres.get()), int(self.polaRejestow[0].get()), unit = int(self.serverID.get()))
+                if result.function_code < 0x80:
+                    print("Success! Value set")
+                    self.start['state'] = 'normal'
                     self.stopSending()
                     self.console.see("end") #Przewijanie okna konsoli
                     return
-                rejestryBool.append(bool(int(self.polaRejestow[i].get())))
-                rejestryInt.append(int(self.polaRejestow[i].get()))
+                else:
+                    print("Write register failed")
+                    self.stopSending()
+                    self.console.see("end") #Przewijanie okna konsoli
+                    return
+            if SelectedFuncCode == '15-Write output coils' or SelectedFuncCode =='16-Write output registers':
+                rejestryBool=[]
+                rejestryInt=[]
+                for i in range(0, int(self.regCount.get())):
+                    if self.polaRejestow[i].get() == "":
+                        rejestryBool.append(False)
+                        rejestryInt.append(0)
+                        continue
+                    if not self.polaRejestow[i].get().isnumeric():
+                        messagebox.showinfo("Info", 'Typed value is not numeric!')
+                        self.stopSending()
+                        self.console.see("end") #Przewijanie okna konsoli
+                        return
+                    rejestryBool.append(bool(int(self.polaRejestow[i].get())))
+                    rejestryInt.append(int(self.polaRejestow[i].get()))
 
-        if SelectedFuncCode == '15-Write output coils':
-            result = self.client.write_coils(int(self.startadres.get()), rejestryBool, unit = int(self.serverID.get()))
-            if result.function_code < 0x80:
-                print("Success! Coils set")
-                self.start['state'] = 'normal'
-                self.stopSending()
-                self.console.see("end") #Przewijanie okna konsoli
-                return
-            else:
-                print("Write coils failed!")
-                self.stopSending()
-                self.console.see("end") #Przewijanie okna konsoli
-                return
+            if SelectedFuncCode == '15-Write output coils':
+                result = self.client.write_coils(int(self.startadres.get()), rejestryBool, unit = int(self.serverID.get()))
+                if result.function_code < 0x80:
+                    print("Success! Coils set")
+                    self.start['state'] = 'normal'
+                    self.stopSending()
+                    self.console.see("end") #Przewijanie okna konsoli
+                    return
+                else:
+                    print("Write coils failed!")
+                    self.stopSending()
+                    self.console.see("end") #Przewijanie okna konsoli
+                    return
 
-        if SelectedFuncCode == '16-Write output registers':
-            result = self.client.write_registers(int(self.startadres.get()), rejestryInt, unit = int(self.serverID.get()))
-            if result.function_code < 0x80:
-                print("Success! Coils set")
-                self.start['state'] = 'normal'
-                self.stopSending()
-                self.console.see("end") #Przewijanie okna konsoli
-                return
-            else:
-                print("Write coils failed!")
-                self.stopSending()
-                self.console.see("end") #Przewijanie okna konsoli
-                return
+            if SelectedFuncCode == '16-Write output registers':
+                result = self.client.write_registers(int(self.startadres.get()), rejestryInt, unit = int(self.serverID.get()))
+                if result.function_code < 0x80:
+                    print("Success! Coils set")
+                    self.start['state'] = 'normal'
+                    self.stopSending()
+                    self.console.see("end") #Przewijanie okna konsoli
+                    return
+                else:
+                    print("Write coils failed!")
+                    self.stopSending()
+                    self.console.see("end") #Przewijanie okna konsoli
+                    return
+        except:
+            messagebox.showinfo("Info", "Exception, check communication logs!")
+            self.stopSending()
+            self.tcpClose()
+
         if regs == None:
             error_code = self.client.last_error()
             messagebox.showinfo("Info", 'Cannot connect or error code. Error Code={0}. {1}'.format(error_code, self.error_definition[int(error_code)]))
@@ -415,8 +449,7 @@ class GUI:
         if self.ModbusMode.get() == 1: #TCP
             self.client = ModbusClient(host=self.IPaddress.get(), port=int(self.TCPport.get()),timeout=3)
             if not self.client.connect():  #Walidacja połączenia
-                messagebox.showinfo("Info", 'Cannot connect to TCP slave / server, \
-                                    check IP address or/and TCP port')
+                messagebox.showinfo("Info", 'Cannot connect to TCP slave / server, check IP address or/and TCP port')
                 return
 
         else:                           #RTU
@@ -425,9 +458,7 @@ class GUI:
                                         timeout=3, baudrate= int(self.Baudrate.get()), \
                                         parity = parityValue)
             if not self.client.connect():   #Walidacja otarcia portu COM
-                messagebox.showinfo("Info", 'Cannot open such serial port, check \
-                                    if this port exist in system, and is not opened \
-                                    by another application')
+                messagebox.showinfo("Info", 'Cannot open such serial port, check if this port exist in system, and is not opened by another application')
                 return
 
         self.connected()
