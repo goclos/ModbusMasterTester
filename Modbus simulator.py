@@ -5,13 +5,10 @@ import tkinter.scrolledtext as txt
 from tkinter.font import Font
 from pymodbus.client.sync import ModbusTcpClient as ModbusClient
 from pymodbus.client.sync import ModbusSerialClient as ModbusSerialClient
-import logging.handlers as Handlers
-from io import StringIO
-import time
 import threading
 import logging
 import sys
-import glob
+import os
 import serial.tools.list_ports
 
 
@@ -29,7 +26,7 @@ class RedirectText(object):
                         'Getting Frame','Factory Response','Frame advanced',\
                         'Adding transaction','Getting transaction',\
                         'Changing transaction state','Current transaction state',"Processing"]
-        for elem in listaLinii:     #
+        for elem in listaLinii: #odfiltrowanie niepotrzebnych logow
             marker=False
             for item in filtrZakazany:
                 if item in elem:
@@ -39,7 +36,7 @@ class RedirectText(object):
                     self.output.insert(tkinter.END, elem+"\n")
 
 class GUI:
-    def __init__(self, window, ports, bgColor):
+    def __init__(self, window, ports, bgColor, kolorLabelek):
         sys.stdout = self          # Set stdout here
         odstepyX = 15
         odstepyY = 5
@@ -54,8 +51,8 @@ class GUI:
         self.labelkiRejestrow = {}
         self.client = 0
         self.timer = 0
-        kolorLabelek = "#c4c4c4"
-        fontLabelek = ("Arial", 11, "bold")
+        self.kolorLabelek = kolorLabelek
+        self.fontLabelek = ("Arial", 11)
         self.stop_event = threading.Event() #Definiowanie zdarzenia aby móc zatrzymać wątek wysyłania zapytań
         self.Fmain = tkinter.Frame(window, borderwidth = 2,relief="groove", bg=bgColor)
         self.Fmain.pack(pady=10, padx=10)
@@ -75,50 +72,70 @@ class GUI:
         self.f4.grid(row=4,column=0,columnspan=4)    #Ramka ze statystykami
         self.f5.grid(row=5,column=0,columnspan=4)   #Ramka z logiem
 
+        #create a pulldown menu, and add it to the menu bar
+        menubar = tkinter.Menu(window)
+        filemenu = tkinter.Menu(menubar, tearoff=0)
+        filemenu.add_command(label="About", command=self.about)
+        filemenu.add_separator()
+        filemenu.add_command(label="Exit", command=window.quit)
+        menubar.add_cascade(label="File", menu=filemenu)
+        window.config(menu=menubar)
+
+
         self.ModbusMode = tkinter.IntVar()
-        self.ModbusTCPradio = tkinter.Radiobutton(self.ModbusRadioButtons, text="Modbus TCP", variable=self.ModbusMode, value=1, command = self.ModbusChange,bg=bgColor)
+        self.ModbusTCPradio = tkinter.Radiobutton(self.ModbusRadioButtons, \
+                                text="Modbus TCP", variable=self.ModbusMode, \
+                                value=1, command = self.ModbusChange,bg=bgColor,\
+                                font=self.fontLabelek, fg=self.kolorLabelek,\
+                                activebackground=bgColor,activeforeground=self.kolorLabelek,\
+                                selectcolor=bgColor)
         self.ModbusTCPradio.grid(row=0, column=0)
-        self.ModbusRTUradio = tkinter.Radiobutton(self.ModbusRadioButtons, text="Modbus RTU", variable=self.ModbusMode, value=2, command = self.ModbusChange,bg=bgColor)
+        self.ModbusRTUradio = tkinter.Radiobutton(self.ModbusRadioButtons, \
+                                text="Modbus RTU", variable=self.ModbusMode,\
+                                value=2, command = self.ModbusChange,bg=bgColor,\
+                                font=self.fontLabelek, fg=self.kolorLabelek,\
+                                activebackground=bgColor,activeforeground=self.kolorLabelek,\
+                                selectcolor=bgColor)
         self.ModbusRTUradio.grid(row=0, column=1)
         self.ModbusRTUradio.select()
         self.ModbusTCPradio.select()
 
 
         #Adres IP
-        labelkaIP = tkinter.Label(self.ModbusTCPsettings, text="IP address:", bg=bgColor)
+        labelkaIP = tkinter.Label(self.ModbusTCPsettings, text="IP address:", bg=bgColor, font=self.fontLabelek, fg=self.kolorLabelek)
         #labelkaIP.configure(font=fontLabelek)
         labelkaIP.grid(row=1, column=0, padx = odstepyX)
         self.IPaddress = tkinter.Entry(self.ModbusTCPsettings, width=15, relief='sunken', borderwidth=3)
         self.IPaddress.grid(row=1, column=1,padx = 5)
         self.IPaddress.insert(0, "127.0.0.1")
         #Port TCP
-        tkinter.Label(self.ModbusTCPsettings, text="TCP port:",bg=bgColor).grid(row=1, column=2)
+        tkinter.Label(self.ModbusTCPsettings, text="TCP port:",bg=bgColor,font=self.fontLabelek, fg=self.kolorLabelek).grid(row=1, column=2)
         self.TCPport = tkinter.Entry(self.ModbusTCPsettings, relief='sunken', borderwidth=3)
         self.TCPport.grid(row=1, column=3,padx = odstepyX, pady=odstepyY)
         self.TCPport.insert(0, "502")
         #Server ID
-        tkinter.Label(self.f1, text="Server / Slave ID:",bg=bgColor).grid(row=2, column=0)
+        tkinter.Label(self.f1, text="Server / Slave ID:",bg=bgColor,font=self.fontLabelek, fg=self.kolorLabelek).grid(row=2, column=0)
         self.serverID = tkinter.Entry(self.f1,width=15, relief='sunken', borderwidth=3)
         self.serverID.grid(row=2, column=1,padx = odstepyX , pady=odstepyY)
         self.serverID.insert(0, "1")
         #Function code
-        tkinter.Label(self.f1, text="Function code:",bg=bgColor).grid(row=2, column=2)
+        tkinter.Label(self.f1, text="Function code:",bg=bgColor,font=self.fontLabelek, fg=self.kolorLabelek).grid(row=2, column=2)
         self.FuncCode = ttk.Combobox(self.f1, values = self.kodyFunkcji,state="readonly") # tworzenie kontrolki Combobox
         self.FuncCode.bind('<<ComboboxSelected>>', self.on_select_changed)
         self.FuncCode.grid(row=2, column=3) # umieszczenie kontrolki na oknie głównym
         self.FuncCode.current(0) # ustawienie domyślnego indeksu zaznaczenia
         #Start address
-        tkinter.Label(self.f1, text="Start address (dec):",bg=bgColor).grid(row=3, column=0)
+        tkinter.Label(self.f1, text="Start address (dec):",bg=bgColor,font=self.fontLabelek, fg=self.kolorLabelek).grid(row=3, column=0)
         self.startadres = tkinter.Entry(self.f1,width=15, relief='sunken', borderwidth=3)
         self.startadres.grid(row=3, column=1,padx = odstepyX, pady=odstepyY )
         self.startadres.insert(0, "0")
         #register count
-        tkinter.Label(self.f1, text="Register count:",bg=bgColor).grid(row=4, column=0)
+        tkinter.Label(self.f1, text="Register count:",bg=bgColor,font=self.fontLabelek, fg=self.kolorLabelek).grid(row=4, column=0)
         self.regCount = tkinter.Entry(self.f1,width=15, relief='sunken', borderwidth=3)
         self.regCount.grid(row=4, column=1,padx = odstepyX, pady=odstepyY )
         self.regCount.insert(0, "1")
         #Pool interval
-        tkinter.Label(self.f1, text="Poll interval (ms):",bg=bgColor).grid(row=3, column=2)
+        tkinter.Label(self.f1, text="Poll interval (ms):",bg=bgColor,font=self.fontLabelek, fg=self.kolorLabelek).grid(row=3, column=2)
         self.poolInterval = tkinter.Entry(self.f1, relief='sunken', borderwidth=3)
         self.poolInterval.grid(row=3, column=3,padx = odstepyX , pady=odstepyY)
         self.poolInterval.insert(0, "500")
@@ -133,12 +150,12 @@ class GUI:
         self.disco.grid(row=5, column=3)
         #Statystyki
         self.txcounter = 0
-        requests = tkinter.Label(self.f4, text="Transmitted requests:", bg=bgColor)
+        requests = tkinter.Label(self.f4, text="Transmitted requests:", bg=bgColor,font=self.fontLabelek, fg=self.kolorLabelek)
         requests.grid(row=0, column=0)
-        self.txrx = tkinter.Label(self.f4, text="{0}".format(self.txcounter),bg=bgColor)
+        self.txrx = tkinter.Label(self.f4, text="{0}".format(self.txcounter),bg=bgColor,font=self.fontLabelek, fg=self.kolorLabelek)
         self.txrx.grid(row=0, column=1)
         #log:
-        self.podpisLoga= tkinter.Label(self.f5, text="Transmission log", bg=bgColor)
+        self.podpisLoga= tkinter.Label(self.f5, text="Transmission log", bg=bgColor,font=self.fontLabelek, fg=self.kolorLabelek)
         self.podpisLoga.grid(row=0, column=0, columnspan=4, pady=5)
         myFont = Font(family="Console", size=8)
         self.console = txt.ScrolledText(self.f5, background="black", font=myFont, foreground="green", width=105,height = 6)
@@ -146,7 +163,7 @@ class GUI:
         #-----------------------------------------------------------------------
 #Druga zakładka:
         #Numer portu COM
-        tkinter.Label(self.ModbusRTUsetings, text="COM port:",bg=bgColor).grid(row=0, column=0)
+        tkinter.Label(self.ModbusRTUsetings, text="COM port:",bg=bgColor,font=self.fontLabelek, fg=self.kolorLabelek).grid(row=0, column=0)
         if ports == []:
             ports = ["None"]
         ManualComPorts=["Manual port selection:",'COM1','COM2','COM3','COM4','COM5','COM6','COM7','COM8',\
@@ -171,26 +188,26 @@ class GUI:
         self.BaudrateValue = ('50','75','110','134','150','300','600','1200',\
                             '1800','2400','4800','7200','9600','19200','38400',\
                             '57600','115200','230400','460800','921600')
-        tkinter.Label(self.ModbusRTUsetings, text="Baudrate:",bg=bgColor).grid(row=0, column=2,pady=5, padx=5)
+        tkinter.Label(self.ModbusRTUsetings, text="Baudrate:",bg=bgColor,font=self.fontLabelek, fg=self.kolorLabelek).grid(row=0, column=2,pady=5, padx=5)
         self.Baudrate = ttk.Combobox(self.ModbusRTUsetings,state="readonly", values = self.BaudrateValue )
         self.Baudrate.grid(row=0, column=3, pady=5,padx=5)
         self.Baudrate.current(12)
         #Data bits
         self.databits = ('8')
-        tkinter.Label(self.ModbusRTUsetings, text="Data bits:",bg=bgColor).grid(row=1, column=0,pady=5,padx=5)
+        tkinter.Label(self.ModbusRTUsetings, text="Data bits:",bg=bgColor,font=self.fontLabelek, fg=self.kolorLabelek).grid(row=1, column=0,pady=5,padx=5)
         self.Bits = ttk.Combobox(self.ModbusRTUsetings,state="readonly", values = self.databits )
         self.Bits.grid(row=1, column=1, pady=5,padx=5)
         self.Bits.current(0)
         #Stop bits
         self.stopbitsValue = ('1','2')
-        tkinter.Label(self.ModbusRTUsetings, text="Stop bits:",bg=bgColor).grid(row=1, column=2,pady=5,padx=5)
+        tkinter.Label(self.ModbusRTUsetings, text="Stop bits:",bg=bgColor,font=self.fontLabelek, fg=self.kolorLabelek).grid(row=1, column=2,pady=5,padx=5)
         self.stopbits = ttk.Combobox(self.ModbusRTUsetings,state="readonly", values = self.stopbitsValue )
         self.stopbits.grid(row=1, column=3, pady=5,padx=5)
         self.stopbits.current(0)
         #Parity
         self.parityCorrectValue = ('N','E','O','M','S')
         self.parityValue = ('None','Even','Odd','Mark','Space')    #PARITY_NONE, PARITY_EVEN, PARITY_ODDPARITY_MARK, PARITY_SPACE. Default to 'N'
-        self.parity = tkinter.Label(self.ModbusRTUsetings, text="Parity:",bg=bgColor).grid(row=2, column=0,pady=5,padx=5)
+        self.parity = tkinter.Label(self.ModbusRTUsetings, text="Parity:",bg=bgColor,font=self.fontLabelek, fg=self.kolorLabelek).grid(row=2, column=0,pady=5,padx=5)
         self.parity = ttk.Combobox(self.ModbusRTUsetings,state="readonly", values = self.parityValue)
         self.parity.grid(row=2, column=1, pady=5,padx=5)
         self.parity.current(0)
@@ -204,7 +221,30 @@ class GUI:
         # Przekierowanie wyjścia
         sys.stdout = redir
 
+    def about(self):
+        message = """Hi my name is Piotr, thanks you for using this software.
+In the meantime please visit my github:
+https://github.com/goclos\
 
+Below license:
+MIT License
+Copyright (c) 2019 Piotr Gocłowski
+Permission is hereby granted, free of charge, to any person obtaining a copy\
+of this software and associated documentation files (the "Software"), to deal\
+in the Software without restriction, including without limitation the rights\
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell\
+copies of the Software, and to permit persons to whom the Software is\
+furnished to do so, subject to the following conditions:\
+The above copyright notice and this permission notice shall be included in all\
+copies or substantial portions of the Software.\
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,\
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE\
+SOFTWARE."""
+        messagebox.showinfo("Info", message)
     #Funkcja przełączająca Modbus TCP / RTU
     def ModbusChange(self):
         #print(self.ModbusMode.get())
@@ -408,7 +448,7 @@ class GUI:
         while count != 0:              #Budowanie form rejestrów
             for x in range(0,16,2):    #iterowanie po x
                 for y in range(0,20):   #iterowanie po y
-                    self.labelkiRejestrow [index] = tkinter.Label(self.f3 , text="{0}.".format(index+startLabel),bg=bgColor)
+                    self.labelkiRejestrow [index] = tkinter.Label(self.f3 , text="{0}.".format(index+startLabel),bg=bgColor, font=self.fontLabelek, fg=self.kolorLabelek)
                     self.labelkiRejestrow [index].grid(row=4+y, column=x, sticky='e',padx=4,pady=1)
                     self.polaRejestow [index]= tkinter.Entry(self.f3,width=8, bd=1)
                     self.polaRejestow[index].insert(0, "0")
@@ -582,8 +622,14 @@ def listSerialPorts():
     #print(ports)    #jeśli puste to = []
     return ports
 
+def resource_path(relative_path):
+    base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
+    return os.path.join(base_path, relative_path)
+
 if __name__ == "__main__":
-    bgColor = "#c4c4c4"
+    #bgColor = "#c4c4c4"
+    bgColor = "#393e46"
+    kolorLabelek = "#FFFFFF"
     ports = listSerialPorts()
 
     window = tkinter.Tk()
@@ -594,6 +640,8 @@ if __name__ == "__main__":
     window.geometry("+{}+{}".format(positionRight, positionDown))
     window.minsize(700, 900)#minimalny rozmiar okna
     window.configure(background=bgColor)
-    GUI = GUI(window ,ports,bgColor)
-    window.winfo_toplevel().title("Modbus Tester")
+    image_path = resource_path("ikona.ico")
+    window.iconbitmap(default=image_path)
+    GUI = GUI(window ,ports,bgColor,kolorLabelek)
+    window.winfo_toplevel().title("Modbus Master TCP/RTU")
     window.mainloop()
