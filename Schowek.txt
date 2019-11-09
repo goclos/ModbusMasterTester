@@ -1,4 +1,8 @@
 TODO_
+-Dodanie możliwości zmiany formatu
+  -hex, bin, 32 float, 32 signed word float, 64 float, 64 signed word
+  
+-
 -Optymalizacja i finito!
 
 

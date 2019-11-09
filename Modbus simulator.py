@@ -10,6 +10,7 @@ import logging
 import sys
 import os
 import serial.tools.list_ports
+import traceback
 
 
 class RedirectText(object):
@@ -81,7 +82,6 @@ class GUI:
         menubar.add_cascade(label="File", menu=filemenu)
         window.config(menu=menubar)
 
-
         self.ModbusMode = tkinter.IntVar()
         self.ModbusTCPradio = tkinter.Radiobutton(self.ModbusRadioButtons, \
                                 text="Modbus TCP", variable=self.ModbusMode, \
@@ -148,6 +148,30 @@ class GUI:
         self.stop.grid(row=5, column=2)
         self.disco = tkinter.Button(self.f1, text = "Disconnect", height=2, width=10, command=self.tcpClose, state='disabled')
         self.disco.grid(row=5, column=3)
+        #Format odczytywanych rejestrów
+        self.regFormat = tkinter.IntVar()
+        self.decMode = tkinter.Radiobutton(self.f1, \
+                                text="DEC", variable=self.regFormat, \
+                                value=1,bg=bgColor,\
+                                font=self.fontLabelek, fg=self.kolorLabelek,\
+                                activebackground=bgColor,activeforeground=self.kolorLabelek,\
+                                selectcolor=bgColor)
+        self.decMode.grid(row=6, column=0)
+        self.binMode = tkinter.Radiobutton(self.f1, \
+                                text="BIN", variable=self.regFormat, \
+                                value=2,bg=bgColor,\
+                                font=self.fontLabelek, fg=self.kolorLabelek,\
+                                activebackground=bgColor,activeforeground=self.kolorLabelek,\
+                                selectcolor=bgColor)
+        self.binMode.grid(row=6, column=1)
+        self.hexMode = tkinter.Radiobutton(self.f1, \
+                                text="HEX", variable=self.regFormat, \
+                                value=3,bg=bgColor,\
+                                font=self.fontLabelek, fg=self.kolorLabelek,\
+                                activebackground=bgColor,activeforeground=self.kolorLabelek,\
+                                selectcolor=bgColor)
+        self.hexMode.grid(row=6, column=2)
+        self.decMode.select()
         #Statystyki
         self.txcounter = 0
         requests = tkinter.Label(self.f4, text="Transmitted requests:", bg=bgColor,font=self.fontLabelek, fg=self.kolorLabelek)
@@ -296,24 +320,22 @@ SOFTWARE."""
             if SelectedFuncCode == '03-Read holding Registers':
                 regs = self.client.read_holding_registers(int(self.startadres.get()), int(self.regCount.get()), unit = int(self.serverID.get()))
                 zmienne = []
-                #print(regs)
-                #print(int(self.startadres.get()),  int(self.regCount.get()), int(self.serverID.get()))
-                #decoder = BinaryPayloadDecoder.fromRegisters(regs.registers, byteorder=Endian.Big, wordorder=Endian.Little)
-                #print(decoder)
                 for i in range(0, int(self.regCount.get())):
                     zmienne.append(regs.registers[i])
+                zmienne = self.changeBase(zmienne)
                 for index in range(0, len(zmienne)):
                     self.polaRejestow[index].delete(0, 'end') #Usuwanie poprzedniej wartości
-                    self.polaRejestow[index].insert(0, int(zmienne[index])) #Dodawanie nowej wartości
+                    self.polaRejestow[index].insert(0, str(zmienne[index])) #Dodawanie nowej wartości
 
             if SelectedFuncCode == '04-Read input Registers':
                 regs = self.client.read_input_registers(int(self.startadres.get()), int(self.regCount.get()), unit = int(self.serverID.get()))
                 zmienne = []
                 for i in range(0, int(self.regCount.get())):
                     zmienne.append(regs.registers[i])
+                zmienne = self.changeBase(zmienne)
                 for index in range(0, len(zmienne)):
                     self.polaRejestow[index].delete(0, 'end') #Usuwanie poprzedniej wartości
-                    self.polaRejestow[index].insert(0, int(zmienne[index])) #Dodawanie nowej wartości
+                    self.polaRejestow[index].insert(0, zmienne[index]) #Dodawanie nowej wartości
 
             #Funkcje zapisujące
             if SelectedFuncCode == '05-Write output coil':
@@ -321,7 +343,7 @@ SOFTWARE."""
                 if self.polaRejestow[0].get() == "":
                     rejestrDozapisana = False
                 else:
-                    if not self.polaRejestow[0].get().isnumeric():
+                    if not self.polaRejestow[0].get().isnumeric() and self.regFormat.get() != 3:
                         messagebox.showinfo("Info", 'Typed value is not numeric!')
                         self.stopSending()
                         self.console.see("end") #Przewijanie okna konsoli
@@ -340,12 +362,13 @@ SOFTWARE."""
                     self.console.see("end") #Przewijanie okna konsoli
                     return
             if SelectedFuncCode == '06-Write holding register':
-                if not self.polaRejestow[0].get().isnumeric():
+                if not self.polaRejestow[0].get().isnumeric() and self.regFormat.get() != 3:
                     messagebox.showinfo("Info", 'Typed value is not numeric!')
                     self.stopSending()
                     self.console.see("end") #Przewijanie okna konsoli
                     return
-                result = self.client.write_register(int(self.startadres.get()), int(self.polaRejestow[0].get()), unit = int(self.serverID.get()))
+                register = self.convertBaseToInt(self.polaRejestow[0].get())
+                result = self.client.write_register(int(self.startadres.get()), register , unit = int(self.serverID.get()))
                 if result.function_code < 0x80:
                     print("Success! Value set")
                     self.start['state'] = 'normal'
@@ -365,13 +388,17 @@ SOFTWARE."""
                         rejestryBool.append(False)
                         rejestryInt.append(0)
                         continue
-                    if not self.polaRejestow[i].get().isnumeric():
+                    if not self.polaRejestow[i].get().isnumeric() and self.regFormat.get() != 3:
                         messagebox.showinfo("Info", 'Typed value is not numeric!')
                         self.stopSending()
                         self.console.see("end") #Przewijanie okna konsoli
                         return
-                    rejestryBool.append(bool(int(self.polaRejestow[i].get())))
-                    rejestryInt.append(int(self.polaRejestow[i].get()))
+                    if self.regFormat.get() != 3 and self.regFormat != 2:
+                        rejestryBool.append(bool(int(self.polaRejestow[i].get())))
+                    if self.regFormat.get() != 3 and self.regFormat != 2:
+                        rejestryInt.append(int(self.polaRejestow[i].get()))
+                    else:
+                        rejestryInt.append(self.polaRejestow[i].get())
 
             if SelectedFuncCode == '15-Write output coils':
                 result = self.client.write_coils(int(self.startadres.get()), rejestryBool, unit = int(self.serverID.get()))
@@ -388,6 +415,7 @@ SOFTWARE."""
                     return
 
             if SelectedFuncCode == '16-Write output registers':
+                rejestryInt = self.convertBaseToInt(rejestryInt)
                 result = self.client.write_registers(int(self.startadres.get()), rejestryInt, unit = int(self.serverID.get()))
                 if result.function_code < 0x80:
                     print("Success! Coils set")
@@ -400,7 +428,8 @@ SOFTWARE."""
                     self.stopSending()
                     self.console.see("end") #Przewijanie okna konsoli
                     return
-        except:
+        except Exception:
+            traceback.print_exc()
             messagebox.showinfo("Info", "Exception, check communication logs!")
             self.stopSending()
             self.tcpClose()
@@ -413,11 +442,6 @@ SOFTWARE."""
             self.disconnected()
             return False
 
-
-        #for index , element in enumerate(regs):
-            #print(index, element)
-        #    self.polaRejestow[index].delete(0, 'end') #Usuwanie poprzedniej wartości
-        #    self.polaRejestow[index].insert(0, element) #Dodawanie nowej wartości
         self.txcounter += 1
         self.txrx['text'] = self.txcounter
         self.console.see("end") #Przewijanie okna konsoli
@@ -426,8 +450,36 @@ SOFTWARE."""
         self.timer = threading.Timer(float(self.poolInterval.get())/1000 , self.readWrite)
         self.timer.start()
 
+    def changeBase(self,rejestry):
+        if self.regFormat.get() == 1:
+            return rejestry
+        if self.regFormat.get() == 2:
+            new_list = [bin(elem) for elem in rejestry]
+            new_list = [str(elem[2:]) for elem in new_list]
+        if self.regFormat.get() == 3:
+            new_list = [hex(elem) for elem in rejestry]
+            new_list = [str(elem[2:]) for elem in new_list]
+        return new_list
+
+    def convertBaseToInt(self, rejestr):
+        if type(rejestr) == list:
+            if self.regFormat.get() == 1:
+                return rejestr
+            if self.regFormat.get() == 2:
+                rejestr = [int(str(elem),2) for elem in rejestr]
+                return rejestr
+            if self.regFormat.get() == 3:
+                rejestr = [int(str(elem), 16) for elem in rejestr]
+                return rejestr
+        else:
+            if self.regFormat.get() == 1:
+                return int(rejestr)
+            if self.regFormat.get() == 2:
+                return int(rejestr, 2)
+            if self.regFormat.get() == 3:
+                return int(rejestr, 16)
+
     def on_select_changed(self,event):
-        #print(event)
         if str(self.FuncCode.get()) == '05-Write output coil' or str(self.FuncCode.get()) =='06-Write holding register':
             self.regCount.delete(0, 'end')
             self.regCount.insert(0, "1")
@@ -438,14 +490,13 @@ SOFTWARE."""
                     self.labelkiRejestrow[index].destroy()
                 except:
                     return
-        #messagebox.showinfo("Info", self.cb_value.get())
 
     def registerEntry(self, count, startLabel):
         #count = int(self.regCount.get())
         #startLabel = int(self.startadres.get())
         index = 0
         self.removeRegisterForms()
-        while count != 0:              #Budowanie form rejestrów
+        while count != 0:              #Budowanie tabeli rejestrów
             for x in range(0,16,2):    #iterowanie po x
                 for y in range(0,20):   #iterowanie po y
                     self.labelkiRejestrow [index] = tkinter.Label(self.f3 , text="{0}.".format(index+startLabel),bg=bgColor, font=self.fontLabelek, fg=self.kolorLabelek)
