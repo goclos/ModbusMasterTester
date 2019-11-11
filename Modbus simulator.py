@@ -141,7 +141,7 @@ class GUI:
         self.poolInterval.insert(0, "500")
         #Przyciski Start stop
         self.connect = tkinter.Button(self.f1, text = "Connect", height=2, width=10, command=self.tcpConnect)
-        self.connect.grid(row=5, column=0, pady=20, padx=30)
+        self.connect.grid(row=5, column=0, pady=5, padx=30)
         self.start = tkinter.Button(self.f1, text = "Start", height=2, width=10, command=self.startSending, state='disabled')
         self.start.grid(row=5, column=1)
         self.stop = tkinter.Button(self.f1, text = "Stop", height=2,width=10, command=self.stopSending, state='disabled')
@@ -151,27 +151,26 @@ class GUI:
         #Format odczytywanych rejestrów
         self.regFormat = tkinter.IntVar()
         self.decMode = tkinter.Radiobutton(self.f1, \
-                                text="DEC", variable=self.regFormat, \
+                                text="dec", variable=self.regFormat, \
                                 value=1,bg=bgColor,\
                                 font=self.fontLabelek, fg=self.kolorLabelek,\
                                 activebackground=bgColor,activeforeground=self.kolorLabelek,\
                                 selectcolor=bgColor)
         self.decMode.grid(row=6, column=0)
         self.binMode = tkinter.Radiobutton(self.f1, \
-                                text="BIN", variable=self.regFormat, \
+                                text="bin", variable=self.regFormat, \
                                 value=2,bg=bgColor,\
                                 font=self.fontLabelek, fg=self.kolorLabelek,\
                                 activebackground=bgColor,activeforeground=self.kolorLabelek,\
                                 selectcolor=bgColor)
         self.binMode.grid(row=6, column=1)
         self.hexMode = tkinter.Radiobutton(self.f1, \
-                                text="HEX", variable=self.regFormat, \
+                                text="hex", variable=self.regFormat, \
                                 value=3,bg=bgColor,\
                                 font=self.fontLabelek, fg=self.kolorLabelek,\
                                 activebackground=bgColor,activeforeground=self.kolorLabelek,\
                                 selectcolor=bgColor)
         self.hexMode.grid(row=6, column=2)
-        self.decMode.select()
         #Statystyki
         self.txcounter = 0
         requests = tkinter.Label(self.f4, text="Transmitted requests:", bg=bgColor,font=self.fontLabelek, fg=self.kolorLabelek)
@@ -480,6 +479,20 @@ SOFTWARE."""
                 return int(rejestr, 16)
 
     def on_select_changed(self,event):
+        if str(self.FuncCode.get()) == '01-Read coils'\
+                or str(self.FuncCode.get()) == '02-Read Discrete Inputs'\
+                or str(self.FuncCode.get()) == '05-Write output coil'\
+                or str(self.FuncCode.get()) == '15-Write output coils':
+            self.decMode.select()
+            self.decMode['state'] = 'disabled'
+            self.hexMode['state'] = 'disabled'
+            self.binMode['state'] = 'disabled'
+        else:
+            self.decMode.select()
+            self.decMode['state'] = 'normal'
+            self.hexMode['state'] = 'normal'
+            self.binMode['state'] = 'normal'
+            
         if str(self.FuncCode.get()) == '05-Write output coil' or str(self.FuncCode.get()) =='06-Write holding register':
             self.regCount.delete(0, 'end')
             self.regCount.insert(0, "1")
@@ -501,7 +514,7 @@ SOFTWARE."""
                 for y in range(0,20):   #iterowanie po y
                     self.labelkiRejestrow [index] = tkinter.Label(self.f3 , text="{0}.".format(index+startLabel),bg=bgColor, font=self.fontLabelek, fg=self.kolorLabelek)
                     self.labelkiRejestrow [index].grid(row=4+y, column=x, sticky='e',padx=4,pady=1)
-                    self.polaRejestow [index]= tkinter.Entry(self.f3,width=8, bd=1)
+                    self.polaRejestow [index]= tkinter.Entry(self.f3,width=16, bd=1)
                     self.polaRejestow[index].insert(0, "0")
                     self.polaRejestow [index].grid(row=4+y, column=x+1,sticky='w',padx=4,pady=1)
                     index = index +1
