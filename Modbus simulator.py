@@ -165,6 +165,7 @@ class GUI:
                                 activebackground=bgColor,activeforeground=self.kolorLabelek,\
                                 selectcolor=bgColor)
         self.hexMode.grid(row=6, column=2)
+        self.decMode.select()
         #Simple stats
         self.txcounter = 0
         requests = tkinter.Label(self.f4, text="Transmitted requests:", bg=bgColor,font=self.fontLabelek, fg=self.kolorLabelek)
@@ -234,8 +235,11 @@ class GUI:
         logging.basicConfig(format=FORMAT,stream=redir, level=logging.DEBUG)
         log = logging.getLogger()
         log.setLevel(logging.DEBUG)
+
+        self.on_select_changed(event=1)
         #Outp redirect
         sys.stdout = redir
+
 
     def about(self):
         message = """Hi my name is Piotr, thanks you for using this software.
