@@ -688,7 +688,7 @@ if __name__ == "__main__":
     window.geometry("+{}+{}".format(positionRight, positionDown))
     window.minsize(700, 900)    #minimal frame size
     window.configure(background=bgColor)
-    image_path = resource_path(r"C:\Users\HP\Dysk Google\python_dom\ModbusTester\ikona.ico")
+    image_path = resource_path(r"ikona.ico")
     window.iconbitmap(default=image_path)
     GUI = GUI(window ,ports,bgColor,kolorLabelek)
     window.winfo_toplevel().title("Modbus Master TCP/RTU")
